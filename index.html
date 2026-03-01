@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HJKCollections - Premium Bags for Every Occasion</title>
+    <meta name="description" content="Discover premium bags at HJKCollections. Laptop bags, backpacks, travel bags, handbags and more. Free shipping on orders above Rs.1,500.">
+
+    <!-- Bootstrap 5.3 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+    <link href="assets/css/components.css" rel="stylesheet">
+    <link href="assets/css/customer.css" rel="stylesheet">
+    <link href="assets/css/responsive.css" rel="stylesheet">
+</head>
+<body>
+    <div id="announcement-bar"></div>
+    <header id="header"></header>
+
+    <!-- Hero Carousel -->
+    <section class="hero-section" id="heroSection"></section>
+
+    <!-- Features Bar -->
+    <section class="features-bar" id="featuresBar"></section>
+
+    <!-- Category Section -->
+    <section class="section-padding" id="categorySection"></section>
+
+    <!-- Featured Products -->
+    <section class="section-padding" style="background:var(--bg-alt)" id="featuredSection"></section>
+
+    <!-- Promotional Banner -->
+    <section class="section-padding" id="promoBanner"></section>
+
+    <!-- New Arrivals -->
+    <section class="section-padding" id="newArrivals"></section>
+
+    <!-- Testimonials -->
+    <section class="section-padding" style="background:var(--accent-light)" id="testimonials"></section>
+
+    <footer id="footer"></footer>
+
+    <!-- JS at end of body -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/data.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/components.js"></script>
+    <script src="assets/js/app.js"></script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Wait for HJKApp.init() to complete (it runs on a 50ms timeout in app.js)
+        setTimeout(function () {
+            renderHeroCarousel();
+            renderFeaturesBar();
+            renderCategorySection();
+            renderFeaturedProducts();
+            renderPromoBanner();
+            renderNewArrivals();
+            renderTestimonials();
+        }, 100);
+
+        /* =============================================
+           1. HERO CAROUSEL
+           ============================================= */
+        function renderHeroCarousel() {
+            const banners = HJKUtils.store.get('hjk_banners') || [];
+            const activeBanners = banners.filter(b => b.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+
+            if (activeBanners.length === 0) return;
+
+            let slidesHTML = '';
+            let dotsHTML = '';
+
+            activeBanners.forEach(function (banner, index) {
+                slidesHTML += `
+                    <div class="hero-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${banner.image}')">
+                        <div class="hero-overlay">
+                            <div class="hero-content">
+                                <h1>${banner.title}</h1>
+                                <p>${banner.subtitle}</p>
+                                <a href="${banner.linkUrl}" class="btn-secondary-custom">${banner.buttonText} <i class="fa-solid fa-arrow-right"></i></a>
+                            </div>
+                        </div>
+                    </div>`;
+
+                dotsHTML += `<button class="hero-dot ${index === 0 ? 'active' : ''}" data-slide="${index}" aria-label="Go to slide ${index + 1}"></button>`;
+            });
+
+            const heroHTML = `
+                <div class="hero-carousel">
+                    ${slidesHTML}
+                    <div class="hero-arrows">
+                        <button class="hero-arrow" id="heroPrev" aria-label="Previous slide">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <button class="hero-arrow" id="heroNext" aria-label="Next slide">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="hero-controls">
+                        ${dotsHTML}
+                    </div>
+                </div>`;
+
+            document.getElementById('heroSection').innerHTML = heroHTML;
+
+            // Carousel logic
+            let currentSlide = 0;
+            const slides = document.querySelectorAll('.hero-slide');
+            const dots = document.querySelectorAll('.hero-dot');
+            const totalSlides = slides.length;
+
+            function goToSlide(index) {
+                slides[currentSlide].classList.remove('active');
+                dots[currentSlide].classList.remove('active');
+                currentSlide = (index + totalSlides) % totalSlides;
+                slides[currentSlide].classList.add('active');
+                dots[currentSlide].classList.add('active');
+            }
+
+            document.getElementById('heroNext').addEventListener('click', function () {
+                goToSlide(currentSlide + 1);
+                resetAutoPlay();
+            });
+
+            document.getElementById('heroPrev').addEventListener('click', function () {
+                goToSlide(currentSlide - 1);
+                resetAutoPlay();
+            });
+
+            dots.forEach(function (dot) {
+                dot.addEventListener('click', function () {
+                    goToSlide(parseInt(this.dataset.slide));
+                    resetAutoPlay();
+                });
+            });
+
+            // Auto-rotate every 5 seconds
+            let autoPlayTimer = setInterval(function () {
+                goToSlide(currentSlide + 1);
+            }, 5000);
+
+            function resetAutoPlay() {
+                clearInterval(autoPlayTimer);
+                autoPlayTimer = setInterval(function () {
+                    goToSlide(currentSlide + 1);
+                }, 5000);
+            }
+        }
+
+        /* =============================================
+           2. FEATURES BAR
+           ============================================= */
+        function renderFeaturesBar() {
+            const features = [
+                { icon: 'fa-truck-fast', title: 'Free Shipping', desc: 'On orders above &#8377;1,500' },
+                { icon: 'fa-shield-halved', title: 'Secure Payment', desc: '100% secure checkout' },
+                { icon: 'fa-rotate-left', title: 'Easy Returns', desc: '30-day return policy' },
+                { icon: 'fa-headset', title: '24/7 Support', desc: 'Dedicated customer care' }
+            ];
+
+            const html = `
+                <div class="container-custom">
+                    <div class="row">
+                        ${features.map(function (f) {
+                            return `
+                            <div class="col-lg-3 col-md-6 col-6">
+                                <div class="feature-item">
+                                    <i class="fa-solid ${f.icon}"></i>
+                                    <div>
+                                        <h6>${f.title}</h6>
+                                        <p>${f.desc}</p>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+
+            document.getElementById('featuresBar').innerHTML = html;
+        }
+
+        /* =============================================
+           3. CATEGORY SECTION
+           ============================================= */
+        function renderCategorySection() {
+            const categories = HJKUtils.store.get('hjk_categories') || [];
+            const activeCategories = categories.filter(function (c) { return c.isActive; }).sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+
+            if (activeCategories.length === 0) return;
+
+            const html = `
+                <div class="container-custom">
+                    <div class="section-title">
+                        <h2>Shop by Category</h2>
+                        <p>Find the perfect bag for every occasion</p>
+                    </div>
+                    <div class="category-grid">
+                        ${activeCategories.map(function (cat) {
+                            return `
+                            <a href="products.html?category=${cat.slug}" class="category-card">
+                                <img src="${cat.image}" alt="${cat.name}" loading="lazy">
+                                <div class="category-overlay">
+                                    <h5>${cat.name}</h5>
+                                    <span>Shop Now</span>
+                                </div>
+                            </a>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+
+            document.getElementById('categorySection').innerHTML = html;
+        }
+
+        /* =============================================
+           4. FEATURED PRODUCTS
+           ============================================= */
+        function renderFeaturedProducts() {
+            const products = HJKUtils.store.get('hjk_products') || [];
+            const featured = products.filter(function (p) { return p.isFeatured && p.isActive; });
+
+            if (featured.length === 0) return;
+
+            const html = `
+                <div class="container-custom">
+                    <div class="section-title">
+                        <h2>Featured Products</h2>
+                        <p>Handpicked for you</p>
+                    </div>
+                    <div class="products-grid">
+                        ${featured.map(function (product) {
+                            return HJKComponents.renderProductCard(product);
+                        }).join('')}
+                    </div>
+                    <div class="text-center mt-5">
+                        <a href="products.html" class="btn-outline-custom">View All Products <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                </div>`;
+
+            document.getElementById('featuredSection').innerHTML = html;
+        }
+
+        /* =============================================
+           5. PROMOTIONAL BANNER
+           ============================================= */
+        function renderPromoBanner() {
+            const html = `
+                <div class="container-custom">
+                    <div style="background: var(--primary); border-radius: var(--radius-lg); padding: 60px 40px; text-align: center; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: rgba(201,169,110,0.1);"></div>
+                        <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; border-radius: 50%; background: rgba(201,169,110,0.08);"></div>
+                        <div style="position: relative; z-index: 1;">
+                            <span style="display: inline-block; background: var(--secondary); color: var(--primary); padding: 6px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px;">Limited Time Offer</span>
+                            <h2 style="font-family: var(--font-heading); font-size: 2.5rem; color: #fff; margin-bottom: 12px;">Summer Collection 2026</h2>
+                            <p style="font-size: 1.2rem; color: rgba(255,255,255,0.8); margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">Up to 30% Off on selected bags. Upgrade your style this season.</p>
+                            <a href="products.html" class="btn-secondary-custom" style="padding: 14px 40px; font-size: 1rem;">Shop Now <i class="fa-solid fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>`;
+
+            document.getElementById('promoBanner').innerHTML = html;
+        }
+
+        /* =============================================
+           6. NEW ARRIVALS
+           ============================================= */
+        function renderNewArrivals() {
+            const products = HJKUtils.store.get('hjk_products') || [];
+            const activeProducts = products.filter(function (p) { return p.isActive; });
+
+            // Sort by createdAt descending, take last 4
+            const newArrivals = activeProducts.sort(function (a, b) {
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            }).slice(0, 4);
+
+            if (newArrivals.length === 0) return;
+
+            const html = `
+                <div class="container-custom">
+                    <div class="section-title">
+                        <h2>New Arrivals</h2>
+                        <p>The latest additions to our collection</p>
+                    </div>
+                    <div class="products-grid">
+                        ${newArrivals.map(function (product) {
+                            return HJKComponents.renderProductCard(product);
+                        }).join('')}
+                    </div>
+                    <div class="text-center mt-5">
+                        <a href="products.html?sort=newest" class="btn-outline-custom">See All New Arrivals <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                </div>`;
+
+            document.getElementById('newArrivals').innerHTML = html;
+        }
+
+        /* =============================================
+           7. TESTIMONIALS
+           ============================================= */
+        function renderTestimonials() {
+            const testimonials = [
+                {
+                    text: 'Absolutely love my Executive Pro laptop bag! The leather quality is superb and it fits my 15-inch laptop perfectly. The compartments are thoughtfully designed. Highly recommend HJKCollections!',
+                    author: 'Rahul S.',
+                    rating: 5
+                },
+                {
+                    text: 'Ordered the Elegance Tote for my wife and she was thrilled. The craftsmanship is excellent and it looks even better in person. Fast delivery and great packaging too.',
+                    author: 'Priya P.',
+                    rating: 5
+                },
+                {
+                    text: 'The Urban Explorer backpack has been my daily companion for months. Anti-theft design and USB port are super practical. Great value for money. Will definitely buy again!',
+                    author: 'Amit K.',
+                    rating: 4
+                }
+            ];
+
+            const html = `
+                <div class="container-custom">
+                    <div class="section-title">
+                        <h2>What Our Customers Say</h2>
+                        <p>Real reviews from real customers</p>
+                    </div>
+                    <div class="row g-4">
+                        ${testimonials.map(function (t) {
+                            let starsHTML = '';
+                            for (let i = 1; i <= 5; i++) {
+                                starsHTML += i <= t.rating
+                                    ? '<i class="fa-solid fa-star filled"></i>'
+                                    : '<i class="fa-solid fa-star"></i>';
+                            }
+                            return `
+                            <div class="col-lg-4 col-md-6">
+                                <div class="testimonial-card">
+                                    <div class="quote-icon">
+                                        <i class="fa-solid fa-quote-left"></i>
+                                    </div>
+                                    <p>"${t.text}"</p>
+                                    <div class="star-rating mb-2">${starsHTML}</div>
+                                    <div class="testimonial-author">${t.author}</div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+
+            document.getElementById('testimonials').innerHTML = html;
+        }
+    });
+    </script>
+</body>
+</html>

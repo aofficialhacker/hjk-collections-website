@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping Policy - HJKCollections</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+    <link href="assets/css/components.css" rel="stylesheet">
+    <link href="assets/css/customer.css" rel="stylesheet">
+    <link href="assets/css/responsive.css" rel="stylesheet">
+</head>
+<body>
+    <header id="header"></header>
+
+    <div class="container-custom">
+        <div class="breadcrumbs mb-4" id="breadcrumbs"></div>
+        <div id="pageContent"></div>
+    </div>
+
+    <footer id="footer"></footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/data.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/components.js"></script>
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            document.getElementById('breadcrumbs').innerHTML = HJKComponents.renderBreadcrumbs([
+                { label: 'Home', url: 'index.html' },
+                { label: 'Shipping Policy' }
+            ]);
+
+            const deliveryOptions = HJKUtils.store.get('hjk_delivery_options') || [];
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="content-card">
+                    <h1 class="font-heading mb-4" style="font-size:2rem;color:var(--primary)">Shipping Policy</h1>
+                    <p class="text-muted mb-4" style="font-size:0.88rem">Last updated: January 15, 2026</p>
+
+                    <div class="cms-content" style="line-height:1.8;font-size:0.95rem">
+                        <h5 class="font-heading mt-4 mb-2">Shipping Methods</h5>
+                        <p>We offer multiple shipping options to ensure your order reaches you safely and on time:</p>
+
+                        <div class="table-responsive mb-4">
+                            <table style="width:100%;border-collapse:collapse">
+                                <thead>
+                                    <tr style="background:var(--primary);color:#fff">
+                                        <th style="padding:12px 16px;text-align:left;border-radius:var(--radius-sm) 0 0 0">Method</th>
+                                        <th style="padding:12px 16px;text-align:left">Estimated Time</th>
+                                        <th style="padding:12px 16px;text-align:left">Cost</th>
+                                        <th style="padding:12px 16px;text-align:left;border-radius:0 var(--radius-sm) 0 0">Free Above</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${deliveryOptions.filter(d => d.isActive).map(d => `
+                                        <tr style="border-bottom:1px solid var(--border)">
+                                            <td style="padding:12px 16px;font-weight:600">${d.name}</td>
+                                            <td style="padding:12px 16px">${d.estimatedDays} business days</td>
+                                            <td style="padding:12px 16px">${HJKUtils.formatPrice(d.cost)}</td>
+                                            <td style="padding:12px 16px">${d.freeAbove ? HJKUtils.formatPrice(d.freeAbove) : 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h5 class="font-heading mt-4 mb-2">Order Processing</h5>
+                        <ul>
+                            <li>Orders are processed within 1-2 business days after payment confirmation.</li>
+                            <li>You will receive an email confirmation with tracking details once your order is shipped.</li>
+                            <li>Orders placed on weekends or public holidays will be processed on the next business day.</li>
+                        </ul>
+
+                        <h5 class="font-heading mt-4 mb-2">Delivery Areas</h5>
+                        <p>We currently deliver across all major cities and towns in India. Delivery to remote areas may take additional 2-3 business days.</p>
+
+                        <h5 class="font-heading mt-4 mb-2">Order Tracking</h5>
+                        <p>You can track your order using the tracking number provided in your shipping confirmation email. Visit our <a href="order-tracking.html" style="color:var(--secondary)">Order Tracking</a> page to check your delivery status.</p>
+
+                        <h5 class="font-heading mt-4 mb-2">Shipping Charges</h5>
+                        <ul>
+                            <li>Standard shipping is FREE on orders above the specified threshold.</li>
+                            <li>Express and premium shipping options are available at additional cost.</li>
+                            <li>Shipping charges are calculated and displayed at checkout before payment.</li>
+                        </ul>
+
+                        <h5 class="font-heading mt-4 mb-2">Undeliverable Packages</h5>
+                        <p>If a package is returned to us due to an incorrect address or failed delivery attempts, we will contact you to arrange reshipment. Additional shipping charges may apply.</p>
+
+                        <h5 class="font-heading mt-4 mb-2">Damaged in Transit</h5>
+                        <p>If your order arrives damaged, please contact us within 48 hours of delivery with an unboxing video as proof. We will arrange a replacement or refund.</p>
+
+                        <div style="background:var(--bg-light);padding:20px;border-radius:var(--radius-md);margin-top:24px">
+                            <h6 class="font-heading mb-2"><i class="fa-solid fa-circle-info" style="color:var(--secondary)"></i> Need Help?</h6>
+                            <p class="mb-0" style="font-size:0.9rem">For any shipping-related queries, please <a href="contact.html" style="color:var(--secondary)">contact our support team</a> or email us at shipping@hjkcollections.com.</p>
+                        </div>
+                    </div>
+                </div>`;
+        }, 100);
+    });
+    </script>
+</body>
+</html>

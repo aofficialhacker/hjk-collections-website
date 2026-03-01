@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - HJKCollections</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+    <link href="assets/css/components.css" rel="stylesheet">
+    <link href="assets/css/customer.css" rel="stylesheet">
+    <link href="assets/css/responsive.css" rel="stylesheet">
+</head>
+<body>
+    <header id="header"></header>
+
+    <div class="container-custom">
+        <div class="breadcrumbs mb-4" id="breadcrumbs"></div>
+        <div id="pageContent"></div>
+    </div>
+
+    <footer id="footer"></footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/data.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/components.js"></script>
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            document.getElementById('breadcrumbs').innerHTML = HJKComponents.renderBreadcrumbs([
+                { label: 'Home', url: 'index.html' },
+                { label: 'FAQ' }
+            ]);
+
+            const faqs = [
+                { category: 'Orders & Shipping', questions: [
+                    { q: 'How long does delivery take?', a: 'Standard delivery takes 5-7 business days. Express delivery takes 2-3 business days. Premium same-day/next-day delivery is available in select cities.' },
+                    { q: 'How can I track my order?', a: 'Once your order is shipped, you will receive a tracking number via email. You can also track your order on our <a href="order-tracking.html">Order Tracking</a> page using your order number.' },
+                    { q: 'Do you offer free shipping?', a: 'Yes! We offer free standard shipping on orders above ₹1,500. Express and premium shipping options have additional charges.' },
+                    { q: 'Can I change my delivery address after placing an order?', a: 'You can update your delivery address only if the order has not been shipped yet. Please contact our support team immediately.' }
+                ]},
+                { category: 'Returns & Refunds', questions: [
+                    { q: 'What is your return policy?', a: 'We accept returns only for damaged or defective products within 7 days of delivery. An unboxing video is mandatory as proof of damage.' },
+                    { q: 'How do I initiate a return?', a: 'Go to My Orders → select the order → click "Request Return". You will need to select a reason, describe the issue, and upload an unboxing video.' },
+                    { q: 'How long does a refund take?', a: 'Once your return is approved, the refund will be processed within 5-7 business days to your original payment method.' },
+                    { q: 'Can I exchange a product?', a: 'Currently, we do not offer direct exchanges. You can return the product (if eligible) and place a new order for the desired item.' }
+                ]},
+                { category: 'Products', questions: [
+                    { q: 'Are the product images accurate?', a: 'We strive to display accurate product images. However, colors may slightly vary depending on your device display settings.' },
+                    { q: 'How do I choose the right size?', a: 'Each product page includes detailed dimensions. Please refer to the size chart and product description before purchasing.' },
+                    { q: 'Are your bags waterproof?', a: 'Most of our bags are water-resistant. Please check individual product descriptions for specific water resistance ratings.' }
+                ]},
+                { category: 'Payment & Security', questions: [
+                    { q: 'What payment methods do you accept?', a: 'We accept all major payment methods through Razorpay including UPI, credit/debit cards, net banking, and popular wallets.' },
+                    { q: 'Is my payment information secure?', a: 'Absolutely. All payments are processed through Razorpay\'s secure gateway with SSL encryption. We never store your card details on our servers.' },
+                    { q: 'Can I pay Cash on Delivery?', a: 'Currently, we only accept online payments through Razorpay to ensure a secure and seamless transaction experience.' }
+                ]},
+                { category: 'Account', questions: [
+                    { q: 'How do I create an account?', a: 'Click "Register" in the header and fill in your details. You can also register during checkout.' },
+                    { q: 'I forgot my password. How do I reset it?', a: 'Click "Forgot Password" on the login page and enter your registered email. You will receive instructions to reset your password.' },
+                    { q: 'Can I delete my account?', a: 'Please contact our support team to request account deletion. We will process your request within 24-48 hours.' }
+                ]}
+            ];
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="content-card">
+                    <div class="text-center mb-5">
+                        <h1 class="font-heading" style="font-size:2.2rem;color:var(--primary)">Frequently Asked Questions</h1>
+                        <p class="text-muted" style="max-width:600px;margin:0 auto">Find answers to the most common questions about HJKCollections.</p>
+                    </div>
+
+                    ${faqs.map((section, si) => `
+                        <div class="mb-4">
+                            <h4 class="font-heading mb-3" style="color:var(--secondary)"><i class="fa-solid fa-${si === 0 ? 'truck' : si === 1 ? 'rotate-left' : si === 2 ? 'bag-shopping' : si === 3 ? 'shield-halved' : 'user'} me-2"></i>${section.category}</h4>
+                            <div class="faq-list">
+                                ${section.questions.map((faq, fi) => `
+                                    <div class="faq-item" style="border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;overflow:hidden">
+                                        <button class="faq-question" onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:16px 20px;background:none;border:none;cursor:pointer;font-weight:600;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;color:var(--text-primary)">
+                                            <span>${faq.q}</span>
+                                            <i class="fa-solid fa-chevron-down" style="transition:transform 0.3s;font-size:0.8rem;color:var(--text-muted)"></i>
+                                        </button>
+                                        <div class="faq-answer" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;padding:0 20px">
+                                            <p style="padding-bottom:16px;color:var(--text-secondary);font-size:0.9rem;line-height:1.7;margin:0">${faq.a}</p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+
+                    <div class="text-center mt-5" style="background:var(--bg-light);padding:40px 30px;border-radius:var(--radius-lg)">
+                        <h4 class="font-heading mb-2">Still Have Questions?</h4>
+                        <p class="text-muted mb-3">Our support team is here to help you.</p>
+                        <a href="contact.html" class="btn-primary-custom"><i class="fa-solid fa-envelope me-2"></i>Contact Us</a>
+                    </div>
+                </div>`;
+        }, 100);
+    });
+
+    function toggleFaq(btn) {
+        const answer = btn.nextElementSibling;
+        const icon = btn.querySelector('i');
+        const isOpen = answer.style.maxHeight && answer.style.maxHeight !== '0px';
+
+        if (isOpen) {
+            answer.style.maxHeight = '0px';
+            icon.style.transform = 'rotate(0deg)';
+        } else {
+            answer.style.maxHeight = answer.scrollHeight + 'px';
+            icon.style.transform = 'rotate(180deg)';
+        }
+    }
+    </script>
+</body>
+</html>
