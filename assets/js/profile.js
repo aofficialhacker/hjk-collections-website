@@ -63,19 +63,28 @@ const HJKProfile = {
             </div>`;
     },
 
-    saveProfile(e) {
+    async saveProfile(e) {
         e.preventDefault();
-        const users = HJKUtils.store.get('hjk_users') || [];
-        const session = HJKUtils.store.get('hjk_session');
-        const user = users.find(u => u.id === session.userId);
-        if (!user) return;
+        const firstName = document.getElementById('profFirstName').value.trim();
+        const lastName = document.getElementById('profLastName').value.trim();
+        const phone = document.getElementById('profPhone').value.trim();
 
-        user.firstName = document.getElementById('profFirstName').value.trim();
-        user.lastName = document.getElementById('profLastName').value.trim();
-        user.phone = document.getElementById('profPhone').value.trim();
-        user.updatedAt = new Date().toISOString();
-        HJKUtils.store.set('hjk_users', users);
-        HJKComponents.showToast('Profile updated!', 'success');
+        try {
+            const res = await HJKAPI.post('/auth/update-profile.php', { firstName, lastName, phone });
+            if (res.success) {
+                // Update cached session
+                if (HJKApp._session) {
+                    HJKApp._session.firstName = firstName;
+                    HJKApp._session.lastName = lastName;
+                    HJKApp._session.phone = phone;
+                }
+                HJKComponents.showToast('Profile updated!', 'success');
+            } else {
+                HJKComponents.showToast(res.message || 'Failed to update profile', 'error');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to update profile', 'error');
+        }
     },
 
     initChangePasswordPage() {
@@ -103,31 +112,40 @@ const HJKProfile = {
             </div>`;
     },
 
-    changePassword(e) {
+    async changePassword(e) {
         e.preventDefault();
-        const current = document.getElementById('currentPassword').value;
-        const newPwd = document.getElementById('newPassword').value;
-        const confirm = document.getElementById('confirmNewPwd').value;
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmNewPwd').value;
 
-        const users = HJKUtils.store.get('hjk_users') || [];
-        const session = HJKUtils.store.get('hjk_session');
-        const user = users.find(u => u.id === session.userId);
+        if (newPassword.length < 8) { HJKComponents.showToast('Password must be at least 8 characters', 'error'); return; }
+        if (newPassword !== confirmPassword) { HJKComponents.showToast('Passwords do not match', 'error'); return; }
 
-        if (user.password !== current) { HJKComponents.showToast('Current password is incorrect', 'error'); return; }
-        if (newPwd.length < 8) { HJKComponents.showToast('Password must be at least 8 characters', 'error'); return; }
-        if (newPwd !== confirm) { HJKComponents.showToast('Passwords do not match', 'error'); return; }
-
-        user.password = newPwd;
-        user.updatedAt = new Date().toISOString();
-        HJKUtils.store.set('hjk_users', users);
-        HJKComponents.showToast('Password updated!', 'success');
-        e.target.reset();
+        try {
+            const res = await HJKAPI.post('/auth/change-password.php', { currentPassword, newPassword });
+            if (res.success) {
+                HJKComponents.showToast('Password updated!', 'success');
+                e.target.reset();
+            } else {
+                HJKComponents.showToast(res.message || 'Failed to change password', 'error');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to change password', 'error');
+        }
     },
 
-    initAddressesPage() {
-        const user = HJKApp.getCurrentUser();
-        const addresses = (HJKUtils.store.get('hjk_addresses') || []).filter(a => a.userId === user.id);
+    async initAddressesPage() {
         const content = document.getElementById('profileContent');
+        let addresses = [];
+
+        try {
+            const res = await HJKAPI.addresses.list();
+            if (res.success) {
+                addresses = res.data || [];
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to load addresses', 'error');
+        }
 
         content.innerHTML = `
             <div class="content-card">
@@ -157,9 +175,19 @@ const HJKProfile = {
             </div>`;
     },
 
-    showAddressModal(editId) {
-        const addresses = HJKUtils.store.get('hjk_addresses') || [];
-        const addr = editId ? addresses.find(a => a.id === editId) : null;
+    async showAddressModal(editId) {
+        let addr = null;
+        if (editId) {
+            try {
+                const res = await HJKAPI.addresses.list();
+                if (res.success) {
+                    addr = (res.data || []).find(a => a.id === editId);
+                }
+            } catch (err) {
+                HJKComponents.showToast(err.message || 'Failed to load address', 'error');
+                return;
+            }
+        }
 
         const html = `
         <div class="modal-overlay" id="addressModal" onclick="if(event.target===this)this.remove()">
@@ -197,10 +225,8 @@ const HJKProfile = {
 
     editAddress(id) { this.showAddressModal(id); },
 
-    saveAddress(e, editId) {
+    async saveAddress(e, editId) {
         e.preventDefault();
-        const user = HJKApp.getCurrentUser();
-        const addresses = HJKUtils.store.get('hjk_addresses') || [];
 
         const data = {
             fullName: document.getElementById('mAddrName').value.trim(),
@@ -214,37 +240,50 @@ const HJKProfile = {
         };
 
         if (editId) {
-            const addr = addresses.find(a => a.id === editId);
-            if (addr) Object.assign(addr, data);
-        } else {
-            addresses.push({
-                id: HJKUtils.generateId('addr'), userId: user.id, ...data,
-                isDefault: addresses.filter(a => a.userId === user.id).length === 0,
-                createdAt: new Date().toISOString()
-            });
+            data.id = editId;
         }
 
-        HJKUtils.store.set('hjk_addresses', addresses);
-        document.getElementById('addressModal')?.remove();
-        HJKComponents.showToast('Address saved!', 'success');
-        this.initAddressesPage();
+        try {
+            const res = await HJKAPI.addresses.save(data);
+            if (res.success) {
+                document.getElementById('addressModal')?.remove();
+                HJKComponents.showToast('Address saved!', 'success');
+                await this.initAddressesPage();
+            } else {
+                HJKComponents.showToast(res.message || 'Failed to save address', 'error');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to save address', 'error');
+        }
     },
 
-    setDefaultAddress(id) {
-        const user = HJKApp.getCurrentUser();
-        const addresses = HJKUtils.store.get('hjk_addresses') || [];
-        addresses.filter(a => a.userId === user.id).forEach(a => a.isDefault = a.id === id);
-        HJKUtils.store.set('hjk_addresses', addresses);
-        this.initAddressesPage();
+    async setDefaultAddress(id) {
+        try {
+            const res = await HJKAPI.addresses.setDefault(id);
+            if (res.success) {
+                HJKComponents.showToast('Default address updated', 'success');
+                await this.initAddressesPage();
+            } else {
+                HJKComponents.showToast(res.message || 'Failed to set default address', 'error');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to set default address', 'error');
+        }
     },
 
     deleteAddress(id) {
-        HJKComponents.showConfirm('Delete Address', 'Are you sure you want to delete this address?', () => {
-            let addresses = HJKUtils.store.get('hjk_addresses') || [];
-            addresses = addresses.filter(a => a.id !== id);
-            HJKUtils.store.set('hjk_addresses', addresses);
-            HJKComponents.showToast('Address deleted', 'info');
-            this.initAddressesPage();
+        HJKComponents.showConfirm('Delete Address', 'Are you sure you want to delete this address?', async () => {
+            try {
+                const res = await HJKAPI.addresses.delete(id);
+                if (res.success) {
+                    HJKComponents.showToast('Address deleted', 'info');
+                    await this.initAddressesPage();
+                } else {
+                    HJKComponents.showToast(res.message || 'Failed to delete address', 'error');
+                }
+            } catch (err) {
+                HJKComponents.showToast(err.message || 'Failed to delete address', 'error');
+            }
         });
     },
 
@@ -278,14 +317,21 @@ const HJKProfile = {
             </div>`;
     },
 
-    saveNotifPref(key, value) {
-        const users = HJKUtils.store.get('hjk_users') || [];
-        const session = HJKUtils.store.get('hjk_session');
-        const user = users.find(u => u.id === session.userId);
-        if (user) {
-            user.notificationPrefs[key] = value;
-            HJKUtils.store.set('hjk_users', users);
-            HJKComponents.showToast('Preference saved!', 'success');
+    async saveNotifPref(key, value) {
+        try {
+            const res = await HJKAPI.post('/auth/update-profile.php', { notificationPrefs: { [key]: value } });
+            if (res.success) {
+                // Update cached session
+                if (HJKApp._session) {
+                    if (!HJKApp._session.notificationPrefs) HJKApp._session.notificationPrefs = {};
+                    HJKApp._session.notificationPrefs[key] = value;
+                }
+                HJKComponents.showToast('Preference saved!', 'success');
+            } else {
+                HJKComponents.showToast(res.message || 'Failed to save preference', 'error');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to save preference', 'error');
         }
     }
 };

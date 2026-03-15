@@ -51,32 +51,40 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/api.js"></script>
     <script src="../assets/js/utils.js"></script>
     <script src="../assets/js/components.js"></script>
     <script src="../assets/js/app.js"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const session = HJKUtils.store.get('hjk_admin_session');
-        if (session) window.location.href = 'index.html';
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const res = await HJKAPI.auth.session();
+            if (res.success && res.data.loggedIn && res.data.user.role === 'superadmin') {
+                window.location.href = 'index.html';
+            }
+        } catch (e) {}
     });
 
-    function handleAdminLogin(e) {
+    async function handleAdminLogin(e) {
         e.preventDefault();
         const email = document.getElementById('adminEmail').value.trim();
         const password = document.getElementById('adminPassword').value;
+        const btn = e.target.querySelector('button[type="submit"]');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Logging in...'; }
 
-        const users = HJKUtils.store.get('hjk_users') || [];
-        const admin = users.find(u => u.email === email && (u.role === 'admin' || u.role === 'superadmin'));
-
-        if (!admin || admin.password !== password) {
-            HJKComponents.showToast('Invalid admin credentials', 'error');
-            return;
+        try {
+            const res = await HJKAPI.auth.adminLogin(email, password);
+            if (res.success) {
+                HJKComponents.showToast('Welcome back!', 'success');
+                setTimeout(() => { window.location.href = 'index.html'; }, 500);
+            } else {
+                HJKComponents.showToast(res.message || 'Invalid admin credentials', 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Invalid admin credentials', 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
         }
-
-        HJKUtils.store.set('hjk_admin_session', { id: admin.id, name: admin.firstName + ' ' + admin.lastName, email: admin.email, role: admin.role });
-        HJKComponents.showToast('Welcome back, ' + admin.firstName + '!', 'success');
-        setTimeout(() => { window.location.href = 'index.html'; }, 500);
     }
 
     function togglePass() {

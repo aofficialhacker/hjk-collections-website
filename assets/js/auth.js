@@ -3,7 +3,7 @@
    ============================================ */
 
 const HJKAuth = {
-    handleLogin(e) {
+    async handleLogin(e) {
         e.preventDefault();
         const email = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value;
@@ -13,36 +13,27 @@ const HJKAuth = {
             return;
         }
 
-        const users = HJKUtils.store.get('hjk_users') || [];
-        const user = users.find(u => u.email === email && u.password === password && u.role === 'customer');
+        const btn = e.target.querySelector('button[type="submit"]');
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Logging in...';
 
-        if (!user) {
-            HJKComponents.showToast('Invalid email or password', 'error');
-            return;
+        try {
+            const res = await HJKAPI.auth.login(email, password);
+            if (res.success) {
+                HJKComponents.showToast('Login successful!', 'success');
+                const redirect = sessionStorage.getItem('hjk_redirect');
+                sessionStorage.removeItem('hjk_redirect');
+                setTimeout(() => {
+                    window.location.href = redirect || 'index.html';
+                }, 500);
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Invalid email or password', 'error');
+            if (btn) btn.innerHTML = originalText;
         }
-
-        if (!user.isActive) {
-            HJKComponents.showToast('Your account has been disabled. Please contact support.', 'error');
-            return;
-        }
-
-        HJKUtils.store.set('hjk_session', {
-            isLoggedIn: true,
-            userId: user.id,
-            role: 'customer',
-            loginAt: new Date().toISOString()
-        });
-
-        HJKComponents.showToast('Login successful!', 'success');
-
-        const redirect = sessionStorage.getItem('hjk_redirect');
-        sessionStorage.removeItem('hjk_redirect');
-        setTimeout(() => {
-            window.location.href = redirect || 'index.html';
-        }, 500);
     },
 
-    handleRegister(e) {
+    async handleRegister(e) {
         e.preventDefault();
         const firstName = document.getElementById('regFirstName').value.trim();
         const lastName = document.getElementById('regLastName').value.trim();
@@ -52,7 +43,6 @@ const HJKAuth = {
         const confirmPassword = document.getElementById('regConfirmPassword').value;
         const termsAccepted = document.getElementById('regTerms').checked;
 
-        // Validation
         if (!firstName || !lastName || !email || !phone || !password) {
             HJKComponents.showToast('Please fill in all fields', 'error');
             return;
@@ -83,45 +73,25 @@ const HJKAuth = {
             return;
         }
 
-        const users = HJKUtils.store.get('hjk_users') || [];
-        if (users.find(u => u.email === email)) {
-            HJKComponents.showToast('An account with this email already exists', 'error');
-            return;
+        const btn = e.target.querySelector('button[type="submit"]');
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating account...';
+
+        try {
+            const res = await HJKAPI.auth.register({ firstName, lastName, email, phone, password });
+            if (res.success) {
+                HJKComponents.showToast('Account created successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Registration failed', 'error');
+            if (btn) btn.innerHTML = originalText;
         }
-
-        const newUser = {
-            id: HJKUtils.generateId('usr'),
-            firstName,
-            lastName,
-            email,
-            phone,
-            password,
-            avatar: '',
-            role: 'customer',
-            isActive: true,
-            notificationPrefs: { orderUpdates: true, promotions: true, newsletter: true },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        users.push(newUser);
-        HJKUtils.store.set('hjk_users', users);
-
-        // Auto login
-        HJKUtils.store.set('hjk_session', {
-            isLoggedIn: true,
-            userId: newUser.id,
-            role: 'customer',
-            loginAt: new Date().toISOString()
-        });
-
-        HJKComponents.showToast('Account created successfully!', 'success');
-        setTimeout(() => {
-            window.location.href = 'index.html';
-        }, 500);
     },
 
-    handleForgotPassword(e) {
+    async handleForgotPassword(e) {
         e.preventDefault();
         const email = document.getElementById('forgotEmail').value.trim();
 
@@ -130,18 +100,17 @@ const HJKAuth = {
             return;
         }
 
-        const users = HJKUtils.store.get('hjk_users') || [];
-        if (!users.find(u => u.email === email)) {
-            HJKComponents.showToast('No account found with this email', 'error');
-            return;
+        try {
+            const res = await HJKAPI.auth.forgotPassword(email);
+            document.getElementById('forgotForm').style.display = 'none';
+            document.getElementById('resetForm').style.display = 'block';
+            HJKComponents.showToast(res.message || 'Password reset link sent!', 'success');
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to send reset link', 'error');
         }
-
-        document.getElementById('forgotForm').style.display = 'none';
-        document.getElementById('resetForm').style.display = 'block';
-        HJKComponents.showToast('Password reset link sent! (Mock: use the form below)', 'success');
     },
 
-    handleResetPassword(e) {
+    async handleResetPassword(e) {
         e.preventDefault();
         const email = document.getElementById('forgotEmail').value.trim();
         const newPassword = document.getElementById('newPassword').value;
@@ -157,44 +126,38 @@ const HJKAuth = {
             return;
         }
 
-        const users = HJKUtils.store.get('hjk_users') || [];
-        const user = users.find(u => u.email === email);
-        if (user) {
-            user.password = newPassword;
-            user.updatedAt = new Date().toISOString();
-            HJKUtils.store.set('hjk_users', users);
+        try {
+            const res = await HJKAPI.auth.resetPassword(email, newPassword);
+            HJKComponents.showToast(res.message || 'Password reset successfully!', 'success');
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 1000);
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Password reset failed', 'error');
         }
-
-        HJKComponents.showToast('Password reset successfully!', 'success');
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 1000);
     },
 
-    handleAdminLogin(e) {
+    async handleAdminLogin(e) {
         e.preventDefault();
         const email = document.getElementById('adminEmail').value.trim();
         const password = document.getElementById('adminPassword').value;
 
-        const users = HJKUtils.store.get('hjk_users') || [];
-        const admin = users.find(u => u.email === email && u.password === password && u.role === 'superadmin');
+        const btn = e.target.querySelector('button[type="submit"]');
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Logging in...';
 
-        if (!admin) {
-            HJKComponents.showToast('Invalid admin credentials', 'error');
-            return;
+        try {
+            const res = await HJKAPI.auth.adminLogin(email, password);
+            if (res.success) {
+                HJKComponents.showToast('Welcome back, Admin!', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Invalid admin credentials', 'error');
+            if (btn) btn.innerHTML = originalText;
         }
-
-        HJKUtils.store.set('hjk_admin_session', {
-            isLoggedIn: true,
-            userId: admin.id,
-            role: 'superadmin',
-            loginAt: new Date().toISOString()
-        });
-
-        HJKComponents.showToast('Welcome back, Admin!', 'success');
-        setTimeout(() => {
-            window.location.href = 'index.html';
-        }, 500);
     },
 
     togglePassword(inputId) {

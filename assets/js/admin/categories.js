@@ -8,42 +8,45 @@ const AdminCategories = {
         this.render();
     },
 
-    render() {
+    async render() {
         const content = document.getElementById('adminContent');
-        const categories = HJKUtils.store.get('hjk_categories') || [];
-        const products = HJKUtils.store.get('hjk_products') || [];
+        content.innerHTML = '<div class="text-center py-5"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
 
-        content.innerHTML = `
-            <div class="admin-toolbar">
-                <div class="toolbar-left">
-                    <div class="admin-search">
-                        <i class="fa-solid fa-search"></i>
-                        <input type="text" placeholder="Search categories..." oninput="AdminCategories.search(this.value)">
+        try {
+            const response = await HJKAPI.admin.categories.list();
+            if (!response.success) throw new Error(response.message || 'Failed to load categories');
+
+            const categories = response.data || [];
+
+            content.innerHTML = `
+                <div class="admin-toolbar">
+                    <div class="toolbar-left">
+                        <div class="admin-search">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" placeholder="Search categories..." oninput="AdminCategories.search(this.value)">
+                        </div>
+                    </div>
+                    <div class="toolbar-right">
+                        <a href="form.html" class="btn-primary-custom btn-sm"><i class="fa-solid fa-plus me-1"></i>Add Category</a>
                     </div>
                 </div>
-                <div class="toolbar-right">
-                    <a href="form.html" class="btn-primary-custom btn-sm"><i class="fa-solid fa-plus me-1"></i>Add Category</a>
-                </div>
-            </div>
 
-            <div class="admin-card">
-                <div class="admin-card-body" style="padding:0">
-                    <table class="admin-table" id="categoriesTable">
-                        <thead>
-                            <tr><th style="width:50px">#</th><th style="width:60px">Image</th><th>Name</th><th>Slug</th><th>Products</th><th>Status</th><th style="width:120px">Actions</th></tr>
-                        </thead>
-                        <tbody>
-                            ${categories.map((cat, i) => {
-                                const productCount = products.filter(p => p.categoryId === cat.id).length;
-                                return `<tr data-name="${cat.name.toLowerCase()}">
+                <div class="admin-card">
+                    <div class="admin-card-body" style="padding:0">
+                        <table class="admin-table" id="categoriesTable">
+                            <thead>
+                                <tr><th style="width:50px">#</th><th style="width:60px">Image</th><th>Name</th><th>Slug</th><th>Products</th><th>Status</th><th style="width:120px">Actions</th></tr>
+                            </thead>
+                            <tbody>
+                                ${categories.map((cat, i) => `<tr data-name="${cat.name.toLowerCase()}">
                                     <td>${i + 1}</td>
                                     <td><img src="${cat.image}" class="table-img" alt="${cat.name}"></td>
                                     <td style="font-weight:600">${cat.name}</td>
                                     <td><code style="font-size:0.8rem">${cat.slug}</code></td>
-                                    <td>${productCount}</td>
+                                    <td>${cat.productCount || 0}</td>
                                     <td>
                                         <label class="toggle-switch">
-                                            <input type="checkbox" ${cat.isActive ? 'checked' : ''} onchange="AdminCategories.toggleStatus('${cat.id}', this.checked)">
+                                            <input type="checkbox" ${cat.isActive ? 'checked' : ''} onchange="AdminCategories.toggleStatus('${cat.id}')">
                                             <span class="toggle-slider"></span>
                                         </label>
                                     </td>
@@ -53,13 +56,16 @@ const AdminCategories = {
                                             <button class="table-action-btn delete" title="Delete" onclick="AdminCategories.delete('${cat.id}')"><i class="fa-solid fa-trash"></i></button>
                                         </div>
                                     </td>
-                                </tr>`;
-                            }).join('')}
-                            ${categories.length === 0 ? '<tr><td colspan="7" class="text-center text-muted py-4">No categories found</td></tr>' : ''}
-                        </tbody>
-                    </table>
-                </div>
-            </div>`;
+                                </tr>`).join('')}
+                                ${categories.length === 0 ? '<tr><td colspan="7" class="text-center text-muted py-4">No categories found</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+        } catch (err) {
+            content.innerHTML = `<div class="text-center py-5 text-danger">${err.message}</div>`;
+            AdminComponents.showToast(err.message, 'error');
+        }
     },
 
     search(query) {
@@ -70,33 +76,51 @@ const AdminCategories = {
         });
     },
 
-    toggleStatus(id, isActive) {
-        const categories = HJKUtils.store.get('hjk_categories') || [];
-        const cat = categories.find(c => c.id === id);
-        if (cat) {
-            cat.isActive = isActive;
-            HJKUtils.store.set('hjk_categories', categories);
-            AdminComponents.showToast(`Category ${isActive ? 'activated' : 'deactivated'}`, 'success');
+    async toggleStatus(id) {
+        try {
+            const response = await HJKAPI.admin.categories.toggle(id);
+            if (!response.success) throw new Error(response.message);
+            AdminComponents.showToast('Category status updated', 'success');
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
+            this.render();
         }
     },
 
     delete(id) {
-        AdminComponents.showConfirm('Delete Category', 'Are you sure you want to delete this category?', () => {
-            let categories = HJKUtils.store.get('hjk_categories') || [];
-            categories = categories.filter(c => c.id !== id);
-            HJKUtils.store.set('hjk_categories', categories);
-            AdminComponents.showToast('Category deleted', 'success');
-            this.render();
+        AdminComponents.showConfirm('Delete Category', 'Are you sure you want to delete this category?', async () => {
+            try {
+                const response = await HJKAPI.admin.categories.delete(id);
+                if (!response.success) throw new Error(response.message);
+                AdminComponents.showToast('Category deleted', 'success');
+                this.render();
+            } catch (err) {
+                AdminComponents.showToast(err.message, 'error');
+            }
         });
     },
 
     // Category Form
     initForm() {
         if (!AdminComponents.getAdminPageShell('categories', 'Category Form')) return;
+        this.loadForm();
+    },
+
+    async loadForm() {
         const id = HJKUtils.getUrlParam('id');
-        const categories = HJKUtils.store.get('hjk_categories') || [];
-        const category = id ? categories.find(c => c.id === id) : null;
         const content = document.getElementById('adminContent');
+        let category = null;
+
+        if (id) {
+            try {
+                const response = await HJKAPI.admin.categories.list();
+                if (response.success) {
+                    category = (response.data || []).find(c => c.id === id) || null;
+                }
+            } catch (err) {
+                AdminComponents.showToast(err.message, 'error');
+            }
+        }
 
         content.innerHTML = `
             <div class="admin-card">
@@ -136,7 +160,7 @@ const AdminCategories = {
             </div>`;
     },
 
-    saveForm(e, id) {
+    async saveForm(e, id) {
         e.preventDefault();
         const name = document.getElementById('catName').value.trim();
         const slug = document.getElementById('catSlug').value.trim() || HJKUtils.slugify(name);
@@ -146,17 +170,17 @@ const AdminCategories = {
 
         if (!name || !image) { AdminComponents.showToast('Please fill required fields', 'error'); return; }
 
-        const categories = HJKUtils.store.get('hjk_categories') || [];
+        try {
+            const data = { name, slug, image, description, isActive };
+            if (id) data.id = id;
 
-        if (id) {
-            const cat = categories.find(c => c.id === id);
-            if (cat) { Object.assign(cat, { name, slug, image, description, isActive }); }
-        } else {
-            categories.push({ id: HJKUtils.generateId('cat'), name, slug, image, description, isActive, createdAt: new Date().toISOString() });
+            const response = await HJKAPI.admin.categories.save(data);
+            if (!response.success) throw new Error(response.message);
+
+            AdminComponents.showToast(`Category ${id ? 'updated' : 'created'}!`, 'success');
+            setTimeout(() => { window.location.href = 'index.html'; }, 500);
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
         }
-
-        HJKUtils.store.set('hjk_categories', categories);
-        AdminComponents.showToast(`Category ${id ? 'updated' : 'created'}!`, 'success');
-        setTimeout(() => { window.location.href = 'index.html'; }, 500);
     }
 };

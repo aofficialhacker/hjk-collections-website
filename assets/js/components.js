@@ -4,29 +4,25 @@
 
 const HJKComponents = {
     renderHeader() {
-        const session = HJKUtils.store.get('hjk_session');
-        const isLoggedIn = session && session.isLoggedIn;
-        const user = isLoggedIn ? (() => {
-            const users = HJKUtils.store.get('hjk_users') || [];
-            return users.find(u => u.id === session.userId);
-        })() : null;
-        const categories = HJKUtils.store.get('hjk_categories') || [];
+        const isLoggedIn = HJKApp.isLoggedIn();
+        const user = HJKApp.getCurrentUser();
+        const categories = HJKApp.getCategories() || [];
 
         return `
         <nav class="navbar navbar-expand-lg sticky-top" id="main-navbar">
             <div class="container-custom">
-                <a class="navbar-brand" href="index.html">
+                <a class="navbar-brand" href="/index.html">
                     <span class="brand-text">
                         <span class="brand-hjk">HJK</span><span class="brand-collections">Collections</span>
                     </span>
                 </a>
 
                 <div class="header-actions-mobile d-lg-none">
-                    <a href="wishlist.html" class="header-icon-btn" data-tooltip="Wishlist">
+                    <a href="/wishlist.html" class="header-icon-btn" data-tooltip="Wishlist">
                         <i class="fa-regular fa-heart"></i>
                         <span class="icon-badge wishlist-badge">0</span>
                     </a>
-                    <a href="cart.html" class="header-icon-btn" data-tooltip="Cart">
+                    <a href="/cart.html" class="header-icon-btn" data-tooltip="Cart">
                         <i class="fa-solid fa-bag-shopping"></i>
                         <span class="icon-badge cart-badge">0</span>
                     </a>
@@ -37,19 +33,19 @@ const HJKComponents = {
 
                 <div class="collapse navbar-collapse" id="navbarContent">
                     <ul class="navbar-nav mx-auto">
-                        <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/index.html">Home</a></li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="products.html" data-bs-toggle="dropdown">Shop</a>
+                            <a class="nav-link dropdown-toggle" href="/products.html" data-bs-toggle="dropdown">Shop</a>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="products.html">All Products</a></li>
+                                <li><a class="dropdown-item" href="/products.html">All Products</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 ${categories.filter(c => c.isActive).map(c =>
-                                    `<li><a class="dropdown-item" href="products.html?category=${c.slug}">${c.name}</a></li>`
+                                    `<li><a class="dropdown-item" href="/products.html?category=${c.slug}">${c.name}</a></li>`
                                 ).join('')}
                             </ul>
                         </li>
-                        <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
-                        <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/about.html">About</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/contact.html">Contact</a></li>
                     </ul>
 
                     <div class="header-search d-none d-lg-block">
@@ -68,23 +64,23 @@ const HJKComponents = {
                                     <span class="header-user-name">${user ? user.firstName : 'Account'}</span>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="profile/index.html"><i class="fa-regular fa-user me-2"></i>My Profile</a></li>
-                                    <li><a class="dropdown-item" href="profile/orders.html"><i class="fa-solid fa-box me-2"></i>My Orders</a></li>
-                                    <li><a class="dropdown-item" href="profile/addresses.html"><i class="fa-solid fa-location-dot me-2"></i>Addresses</a></li>
+                                    <li><a class="dropdown-item" href="/profile/index.html"><i class="fa-regular fa-user me-2"></i>My Profile</a></li>
+                                    <li><a class="dropdown-item" href="/profile/orders.html"><i class="fa-solid fa-box me-2"></i>My Orders</a></li>
+                                    <li><a class="dropdown-item" href="/profile/addresses.html"><i class="fa-solid fa-location-dot me-2"></i>Addresses</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="#" onclick="HJKApp.logout(); return false;"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
                                 </ul>
                             </div>
                         ` : `
-                            <a href="login.html" class="header-icon-btn" data-tooltip="Login">
+                            <a href="/login.html" class="header-icon-btn" data-tooltip="Login">
                                 <i class="fa-regular fa-user"></i>
                             </a>
                         `}
-                        <a href="wishlist.html" class="header-icon-btn" data-tooltip="Wishlist">
+                        <a href="/wishlist.html" class="header-icon-btn" data-tooltip="Wishlist">
                             <i class="fa-regular fa-heart"></i>
                             <span class="icon-badge wishlist-badge">0</span>
                         </a>
-                        <a href="cart.html" class="header-icon-btn" data-tooltip="Cart">
+                        <a href="/cart.html" class="header-icon-btn" data-tooltip="Cart">
                             <i class="fa-solid fa-bag-shopping"></i>
                             <span class="icon-badge cart-badge">0</span>
                         </a>
@@ -104,22 +100,22 @@ const HJKComponents = {
                     <input type="text" class="form-control-custom" placeholder="Search bags..." id="mobileSearch">
                 </div>
                 <ul class="mobile-nav-list">
-                    <li><a href="index.html"><i class="fa-solid fa-house me-2"></i>Home</a></li>
-                    <li><a href="products.html"><i class="fa-solid fa-bag-shopping me-2"></i>All Products</a></li>
+                    <li><a href="/index.html"><i class="fa-solid fa-house me-2"></i>Home</a></li>
+                    <li><a href="/products.html"><i class="fa-solid fa-bag-shopping me-2"></i>All Products</a></li>
                     ${categories.filter(c => c.isActive).map(c =>
-                        `<li><a href="products.html?category=${c.slug}" class="ps-4">${c.name}</a></li>`
+                        `<li><a href="/products.html?category=${c.slug}" class="ps-4">${c.name}</a></li>`
                     ).join('')}
-                    <li><a href="about.html"><i class="fa-solid fa-info-circle me-2"></i>About Us</a></li>
-                    <li><a href="contact.html"><i class="fa-solid fa-envelope me-2"></i>Contact</a></li>
+                    <li><a href="/about.html"><i class="fa-solid fa-info-circle me-2"></i>About Us</a></li>
+                    <li><a href="/contact.html"><i class="fa-solid fa-envelope me-2"></i>Contact</a></li>
                     <li class="divider"></li>
                     ${isLoggedIn ? `
-                        <li><a href="profile/index.html"><i class="fa-regular fa-user me-2"></i>My Profile</a></li>
-                        <li><a href="profile/orders.html"><i class="fa-solid fa-box me-2"></i>My Orders</a></li>
-                        <li><a href="wishlist.html"><i class="fa-regular fa-heart me-2"></i>Wishlist</a></li>
+                        <li><a href="/profile/index.html"><i class="fa-regular fa-user me-2"></i>My Profile</a></li>
+                        <li><a href="/profile/orders.html"><i class="fa-solid fa-box me-2"></i>My Orders</a></li>
+                        <li><a href="/wishlist.html"><i class="fa-regular fa-heart me-2"></i>Wishlist</a></li>
                         <li><a href="#" onclick="HJKApp.logout(); return false;"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
                     ` : `
-                        <li><a href="login.html"><i class="fa-solid fa-right-to-bracket me-2"></i>Login</a></li>
-                        <li><a href="register.html"><i class="fa-solid fa-user-plus me-2"></i>Register</a></li>
+                        <li><a href="/login.html"><i class="fa-solid fa-right-to-bracket me-2"></i>Login</a></li>
+                        <li><a href="/register.html"><i class="fa-solid fa-user-plus me-2"></i>Register</a></li>
                     `}
                 </ul>
             </div>
@@ -131,25 +127,23 @@ const HJKComponents = {
         const searchInput = document.getElementById('headerSearch');
         const searchResults = document.getElementById('searchResults');
         if (searchInput && searchResults) {
-            searchInput.addEventListener('input', HJKUtils.debounce((e) => {
+            searchInput.addEventListener('input', HJKUtils.debounce(async (e) => {
                 const query = e.target.value.trim();
                 if (query.length < 2) {
                     searchResults.style.display = 'none';
                     return;
                 }
-                const results = HJKApp.searchProducts(query);
+                const results = await HJKApp.searchProducts(query);
                 if (results.length === 0) {
                     searchResults.innerHTML = '<div class="search-no-results">No products found</div>';
                 } else {
                     searchResults.innerHTML = results.map(p => {
-                        const price = HJKUtils.getLowestPrice(p);
-                        const img = p.variants[0]?.images[0] || '';
                         return `
-                            <a href="product-detail.html?id=${p.id}" class="search-result-item">
-                                <img src="${img}" alt="${p.name}">
+                            <a href="/product-detail.html?id=${p.id}" class="search-result-item">
+                                <img src="${p.image || ''}" alt="${p.name}">
                                 <div class="search-result-info">
                                     <div class="search-result-name">${p.name}</div>
-                                    <div class="search-result-price">${HJKUtils.formatPrice(price.sellingPrice)}</div>
+                                    <div class="search-result-price">${HJKUtils.formatPrice(p.price)}</div>
                                 </div>
                             </a>`;
                     }).join('');
@@ -182,8 +176,8 @@ const HJKComponents = {
     },
 
     renderFooter() {
-        const settings = HJKUtils.store.get('hjk_settings') || {};
-        const categories = HJKUtils.store.get('hjk_categories') || [];
+        const settings = HJKApp.getSettings() || {};
+        const categories = HJKApp.getCategories() || [];
 
         return `
         <footer class="site-footer">
@@ -205,18 +199,18 @@ const HJKComponents = {
                         <div class="col-lg-2 col-md-6 col-6">
                             <h5 class="footer-title">Quick Links</h5>
                             <ul class="footer-links">
-                                <li><a href="index.html">Home</a></li>
-                                <li><a href="products.html">Shop</a></li>
-                                <li><a href="about.html">About Us</a></li>
-                                <li><a href="contact.html">Contact</a></li>
-                                <li><a href="faq.html">FAQ</a></li>
+                                <li><a href="/index.html">Home</a></li>
+                                <li><a href="/products.html">Shop</a></li>
+                                <li><a href="/about.html">About Us</a></li>
+                                <li><a href="/contact.html">Contact</a></li>
+                                <li><a href="/faq.html">FAQ</a></li>
                             </ul>
                         </div>
                         <div class="col-lg-2 col-md-6 col-6">
                             <h5 class="footer-title">Categories</h5>
                             <ul class="footer-links">
                                 ${categories.filter(c => c.isActive).map(c =>
-                                    `<li><a href="products.html?category=${c.slug}">${c.name}</a></li>`
+                                    `<li><a href="/products.html?category=${c.slug}">${c.name}</a></li>`
                                 ).join('')}
                             </ul>
                         </div>
@@ -246,9 +240,9 @@ const HJKComponents = {
                         </div>
                         <div class="col-md-6 text-md-end">
                             <div class="footer-bottom-links">
-                                <a href="terms.html">Terms</a>
-                                <a href="privacy.html">Privacy</a>
-                                <a href="shipping-policy.html">Shipping</a>
+                                <a href="/terms.html">Terms</a>
+                                <a href="/privacy.html">Privacy</a>
+                                <a href="/shipping-policy.html">Shipping</a>
                             </div>
                         </div>
                     </div>
@@ -257,16 +251,14 @@ const HJKComponents = {
         </footer>`;
     },
 
-    handleNewsletter(e) {
+    async handleNewsletter(e) {
         e.preventDefault();
         const email = e.target.querySelector('input').value;
-        let subscribers = HJKUtils.store.get('hjk_newsletter') || [];
-        if (subscribers.includes(email)) {
-            this.showToast('You are already subscribed!', 'info');
-        } else {
-            subscribers.push(email);
-            HJKUtils.store.set('hjk_newsletter', subscribers);
-            this.showToast('Subscribed successfully!', 'success');
+        try {
+            const res = await HJKAPI.newsletter.subscribe(email);
+            this.showToast(res.message || 'Subscribed successfully!', 'success');
+        } catch (err) {
+            this.showToast(err.message || 'Subscription failed', 'error');
         }
         e.target.reset();
     },
@@ -282,7 +274,7 @@ const HJKComponents = {
         return `
         <div class="product-card card-custom hover-lift">
             <div class="product-card-image img-hover-zoom">
-                <a href="product-detail.html?id=${product.id}">
+                <a href="/product-detail.html?id=${product.id}">
                     <img src="${img}" alt="${product.name}" loading="lazy">
                 </a>
                 ${discount > 0 ? `<span class="product-badge badge-discount">${discount}% OFF</span>` : ''}
@@ -300,7 +292,7 @@ const HJKComponents = {
             <div class="product-card-body">
                 ${category ? `<span class="product-card-category">${category.name}</span>` : ''}
                 <h5 class="product-card-title">
-                    <a href="product-detail.html?id=${product.id}">${product.name}</a>
+                    <a href="/product-detail.html?id=${product.id}">${product.name}</a>
                 </h5>
                 ${HJKUtils.renderStars(product.averageRating, true, product.totalReviews)}
                 <div class="product-card-price">
@@ -316,22 +308,24 @@ const HJKComponents = {
         </div>`;
     },
 
-    toggleWishlistBtn(btn, productId, variantId) {
-        const isNowWished = HJKApp.toggleWishlist(productId, variantId);
+    async toggleWishlistBtn(btn, productId, variantId) {
+        const isNowWished = await HJKApp.toggleWishlist(productId, variantId);
         btn.classList.toggle('active', isNowWished);
         const icon = btn.querySelector('i');
         icon.className = isNowWished ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
         btn.setAttribute('data-tooltip', isNowWished ? 'Remove from Wishlist' : 'Add to Wishlist');
     },
 
-    quickView(productId) {
-        const product = HJKApp.getProduct(productId);
-        if (!product) return;
-        const price = HJKUtils.getLowestPrice(product);
-        const img = product.variants[0]?.images[0] || '';
-        const category = HJKApp.getCategory(product.categoryId);
+    async quickView(productId) {
+        try {
+            const res = await HJKAPI.products.detail(productId);
+            if (!res.success) return;
+            const product = res.data;
+            const price = HJKUtils.getLowestPrice(product);
+            const img = product.variants[0]?.images[0] || '';
+            const category = { name: product.categoryName };
 
-        const html = `
+            const html = `
         <div class="modal-overlay" onclick="if(event.target===this)this.remove()">
             <div class="modal-content-custom" style="max-width:700px">
                 <div class="modal-header-custom">
@@ -350,7 +344,7 @@ const HJKComponents = {
                             <div class="my-3">${HJKUtils.renderPrice(price.normalPrice, price.sellingPrice)}</div>
                             <p class="text-muted" style="font-size:0.9rem">${product.shortDescription}</p>
                             <div class="mt-3 d-flex gap-2">
-                                <a href="product-detail.html?id=${product.id}" class="btn-primary-custom btn-sm">View Details</a>
+                                <a href="/product-detail.html?id=${product.id}" class="btn-primary-custom btn-sm">View Details</a>
                                 <button class="btn-outline-custom btn-sm" onclick="HJKApp.addToCart('${product.id}','${product.variants[0].id}','${product.variants[0].sizes[0].size}');this.closest('.modal-overlay').remove()">
                                     <i class="fa-solid fa-bag-shopping"></i> Add to Cart
                                 </button>
@@ -361,6 +355,9 @@ const HJKComponents = {
             </div>
         </div>`;
         document.body.insertAdjacentHTML('beforeend', html);
+        } catch (err) {
+            console.error('Quick view error:', err);
+        }
     },
 
     // Toast Notification
@@ -423,7 +420,7 @@ const HJKComponents = {
     renderBreadcrumbs(items) {
         return `
         <div class="breadcrumb-custom">
-            <a href="index.html">Home</a>
+            <a href="/index.html">Home</a>
             ${items.map((item, i) => `
                 <span class="separator"><i class="fa-solid fa-chevron-right"></i></span>
                 ${i === items.length - 1

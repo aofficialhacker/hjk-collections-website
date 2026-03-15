@@ -43,30 +43,46 @@
 
     <!-- JS at end of body -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/data.js"></script>
+    <script src="assets/js/api.js"></script>
     <script src="assets/js/utils.js"></script>
     <script src="assets/js/components.js"></script>
     <script src="assets/js/app.js"></script>
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Wait for HJKApp.init() to complete (it runs on a 50ms timeout in app.js)
-        setTimeout(function () {
-            renderHeroCarousel();
+        // Wait for HJKApp.init() to complete
+        const checkReady = setInterval(function () {
+            if (HJKApp._ready) {
+                clearInterval(checkReady);
+                initHomePage();
+            }
+        }, 50);
+
+        async function initHomePage() {
             renderFeaturesBar();
-            renderCategorySection();
-            renderFeaturedProducts();
             renderPromoBanner();
-            renderNewArrivals();
             renderTestimonials();
-        }, 100);
+            await Promise.all([
+                renderHeroCarousel(),
+                renderCategorySection(),
+                renderFeaturedProducts(),
+                renderNewArrivals()
+            ]);
+        }
 
         /* =============================================
            1. HERO CAROUSEL
            ============================================= */
-        function renderHeroCarousel() {
-            const banners = HJKUtils.store.get('hjk_banners') || [];
-            const activeBanners = banners.filter(b => b.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+        async function renderHeroCarousel() {
+            let activeBanners = [];
+            try {
+                const res = await HJKAPI.banners.list();
+                if (res.success) {
+                    activeBanners = (res.data || []).filter(b => b.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+                }
+            } catch (err) {
+                return;
+            }
 
             if (activeBanners.length === 0) return;
 
@@ -185,8 +201,8 @@
         /* =============================================
            3. CATEGORY SECTION
            ============================================= */
-        function renderCategorySection() {
-            const categories = HJKUtils.store.get('hjk_categories') || [];
+        async function renderCategorySection() {
+            const categories = HJKApp.getCategories() || [];
             const activeCategories = categories.filter(function (c) { return c.isActive; }).sort(function (a, b) { return a.sortOrder - b.sortOrder; });
 
             if (activeCategories.length === 0) return;
@@ -217,9 +233,16 @@
         /* =============================================
            4. FEATURED PRODUCTS
            ============================================= */
-        function renderFeaturedProducts() {
-            const products = HJKUtils.store.get('hjk_products') || [];
-            const featured = products.filter(function (p) { return p.isFeatured && p.isActive; });
+        async function renderFeaturedProducts() {
+            let featured = [];
+            try {
+                const res = await HJKAPI.products.featured(8);
+                if (res.success) {
+                    featured = res.data || [];
+                }
+            } catch (err) {
+                return;
+            }
 
             if (featured.length === 0) return;
 
@@ -266,14 +289,16 @@
         /* =============================================
            6. NEW ARRIVALS
            ============================================= */
-        function renderNewArrivals() {
-            const products = HJKUtils.store.get('hjk_products') || [];
-            const activeProducts = products.filter(function (p) { return p.isActive; });
-
-            // Sort by createdAt descending, take last 4
-            const newArrivals = activeProducts.sort(function (a, b) {
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            }).slice(0, 4);
+        async function renderNewArrivals() {
+            let newArrivals = [];
+            try {
+                const res = await HJKAPI.products.list({ sort: 'newest', per_page: 4 });
+                if (res.success) {
+                    newArrivals = res.data || [];
+                }
+            } catch (err) {
+                return;
+            }
 
             if (newArrivals.length === 0) return;
 

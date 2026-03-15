@@ -4,19 +4,30 @@
 
 const HJKCart = {
     appliedCoupon: null,
+    cartData: null,
 
-    init() {
+    async init() {
         this.appliedCoupon = JSON.parse(sessionStorage.getItem('hjk_applied_coupon') || 'null');
-        this.render();
+        await this.render();
     },
 
-    render() {
+    async render() {
         const container = document.getElementById('cartContent');
         if (!container) return;
-        const cart = HJKApp.getCart();
-        const products = HJKUtils.store.get('hjk_products') || [];
 
-        if (cart.items.length === 0) {
+        try {
+            const res = await HJKAPI.cart.get();
+            if (!res.success) throw { message: res.message || 'Failed to load cart' };
+            this.cartData = res.data;
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to load cart', 'error');
+            container.innerHTML = HJKComponents.renderEmptyState('fa-bag-shopping', 'Error Loading Cart', 'Please try again later.', 'Start Shopping', 'products.html');
+            return;
+        }
+
+        const cart = this.cartData;
+
+        if (!cart.items || cart.items.length === 0) {
             container.innerHTML = HJKComponents.renderEmptyState('fa-bag-shopping', 'Your Cart is Empty', 'Looks like you haven\'t added anything to your cart yet.', 'Start Shopping', 'products.html');
             return;
         }
@@ -25,25 +36,22 @@ const HJKCart = {
         let subtotal = 0;
 
         cart.items.forEach(item => {
-            const product = products.find(p => p.id === item.productId);
-            if (!product) return;
-            const variant = product.variants.find(v => v.id === item.variantId);
-            const img = variant?.images[0] || '';
-            const lineTotal = item.priceAtAdd * item.quantity;
+            const img = item.image || '';
+            const lineTotal = item.currentPrice * item.quantity;
             subtotal += lineTotal;
 
             itemsHtml += `
             <tr>
                 <td>
                     <div class="cart-item-info">
-                        <img src="${img}" alt="${product.name}">
+                        <img src="${img}" alt="${item.productName}">
                         <div>
-                            <div class="cart-item-name"><a href="product-detail.html?id=${product.id}" style="color:var(--text)">${product.name}</a></div>
-                            <div class="cart-item-variant">${variant?.color || ''} | ${item.size}</div>
+                            <div class="cart-item-name"><a href="product-detail.html?slug=${item.productSlug}" style="color:var(--text)">${item.productName}</a></div>
+                            <div class="cart-item-variant">${item.color || ''} | ${item.size}</div>
                         </div>
                     </div>
                 </td>
-                <td class="cart-item-price">${HJKUtils.formatPrice(item.priceAtAdd)}</td>
+                <td class="cart-item-price">${HJKUtils.formatPrice(item.currentPrice)}</td>
                 <td>
                     <div class="qty-control">
                         <button onclick="HJKCart.updateQty('${item.id}', ${item.quantity - 1})">-</button>
@@ -56,7 +64,7 @@ const HJKCart = {
             </tr>`;
         });
 
-        const settings = HJKUtils.store.get('hjk_settings') || {};
+        const settings = HJKApp.getSettings() || {};
         const freeShipAbove = settings.freeShippingAbove || 1500;
         const shipping = subtotal >= freeShipAbove ? 0 : 80;
         let discount = 0;
@@ -116,51 +124,54 @@ const HJKCart = {
         </div>`;
     },
 
-    updateQty(cartItemId, qty) {
+    async updateQty(cartItemId, qty) {
         if (qty < 1) return this.removeItem(cartItemId);
-        HJKApp.updateCartQuantity(cartItemId, qty);
-        this.render();
+        try {
+            await HJKApp.updateCartQuantity(cartItemId, qty);
+            await this.render();
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to update quantity', 'error');
+        }
     },
 
     removeItem(cartItemId) {
-        HJKComponents.showConfirm('Remove Item', 'Are you sure you want to remove this item?', () => {
-            HJKApp.removeFromCart(cartItemId);
-            this.render();
-            HJKComponents.showToast('Item removed from cart', 'info');
+        HJKComponents.showConfirm('Remove Item', 'Are you sure you want to remove this item?', async () => {
+            try {
+                await HJKApp.removeFromCart(cartItemId);
+                await this.render();
+                HJKComponents.showToast('Item removed from cart', 'info');
+            } catch (err) {
+                HJKComponents.showToast(err.message || 'Failed to remove item', 'error');
+            }
         });
     },
 
-    applyCoupon() {
+    async applyCoupon() {
         const code = document.getElementById('couponInput')?.value.trim().toUpperCase();
         if (!code) { HJKComponents.showToast('Please enter a coupon code', 'error'); return; }
 
-        const coupons = HJKUtils.store.get('hjk_coupons') || [];
-        const coupon = coupons.find(c => c.code === code);
+        try {
+            // Calculate current subtotal from cart data
+            const subtotal = (this.cartData?.items || []).reduce((s, i) => s + i.currentPrice * i.quantity, 0);
+            const res = await HJKAPI.checkout.validateCoupon(code, subtotal);
+            if (!res.success) {
+                HJKComponents.showToast(res.message || 'Invalid coupon code', 'error');
+                return;
+            }
 
-        if (!coupon) { HJKComponents.showToast('Invalid coupon code', 'error'); return; }
-        if (!coupon.isActive) { HJKComponents.showToast('This coupon is no longer active', 'error'); return; }
-
-        const now = new Date();
-        if (new Date(coupon.validFrom) > now) { HJKComponents.showToast('This coupon is not yet valid', 'error'); return; }
-        if (new Date(coupon.validUntil) < now) { HJKComponents.showToast('This coupon has expired', 'error'); return; }
-
-        const subtotal = HJKApp.getCartTotal();
-        if (subtotal < coupon.minOrderAmount) {
-            HJKComponents.showToast(`Minimum order amount is ${HJKUtils.formatPrice(coupon.minOrderAmount)}`, 'error');
-            return;
+            this.appliedCoupon = res.data;
+            sessionStorage.setItem('hjk_applied_coupon', JSON.stringify(res.data));
+            HJKComponents.showToast('Coupon applied successfully!', 'success');
+            await this.render();
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Invalid coupon code', 'error');
         }
-        if (coupon.usedCount >= coupon.usageLimit) { HJKComponents.showToast('This coupon has reached its usage limit', 'error'); return; }
-
-        this.appliedCoupon = coupon;
-        sessionStorage.setItem('hjk_applied_coupon', JSON.stringify(coupon));
-        HJKComponents.showToast('Coupon applied successfully!', 'success');
-        this.render();
     },
 
-    removeCoupon() {
+    async removeCoupon() {
         this.appliedCoupon = null;
         sessionStorage.removeItem('hjk_applied_coupon');
-        this.render();
+        await this.render();
     },
 
     proceedToCheckout() {

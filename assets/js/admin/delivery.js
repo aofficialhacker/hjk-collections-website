@@ -8,72 +8,99 @@ const AdminDelivery = {
         this.render();
     },
 
-    render() {
+    async render() {
         const content = document.getElementById('adminContent');
-        const options = HJKUtils.store.get('hjk_delivery_options') || [];
+        content.innerHTML = '<div class="text-center py-5"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
 
-        content.innerHTML = `
-            <div class="admin-toolbar">
-                <div class="toolbar-left"><h5 class="font-heading mb-0">Manage Delivery Methods</h5></div>
-                <div class="toolbar-right">
-                    <button class="btn-primary-custom btn-sm" onclick="AdminDelivery.showForm()"><i class="fa-solid fa-plus me-1"></i>Add Method</button>
+        try {
+            const response = await HJKAPI.admin.delivery.list();
+            if (!response.success) throw new Error(response.message || 'Failed to load delivery options');
+
+            const options = response.data || [];
+
+            content.innerHTML = `
+                <div class="admin-toolbar">
+                    <div class="toolbar-left"><h5 class="font-heading mb-0">Manage Delivery Methods</h5></div>
+                    <div class="toolbar-right">
+                        <button class="btn-primary-custom btn-sm" onclick="AdminDelivery.showForm()"><i class="fa-solid fa-plus me-1"></i>Add Method</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="admin-card">
-                <div class="admin-card-body" style="padding:0">
-                    <table class="admin-table">
-                        <thead><tr><th>#</th><th>Name</th><th>Est. Days</th><th>Cost</th><th>Free Above</th><th>Status</th><th>Actions</th></tr></thead>
-                        <tbody>
-                            ${options.map((d, i) => `
-                                <tr>
-                                    <td>${i + 1}</td>
-                                    <td style="font-weight:600">${d.name}</td>
-                                    <td>${d.estimatedDays} days</td>
-                                    <td>${HJKUtils.formatPrice(d.cost)}</td>
-                                    <td>${d.freeAbove ? HJKUtils.formatPrice(d.freeAbove) : '-'}</td>
-                                    <td>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" ${d.isActive ? 'checked' : ''} onchange="AdminDelivery.toggleStatus('${d.id}',this.checked)">
-                                            <span class="toggle-slider"></span>
-                                        </label>
-                                    </td>
-                                    <td>
-                                        <div class="table-actions">
-                                            <button class="table-action-btn edit" onclick="AdminDelivery.showForm('${d.id}')"><i class="fa-solid fa-pen"></i></button>
-                                            <button class="table-action-btn delete" onclick="AdminDelivery.delete('${d.id}')"><i class="fa-solid fa-trash"></i></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                            ${options.length === 0 ? '<tr><td colspan="7" class="text-center text-muted py-4">No delivery options</td></tr>' : ''}
-                        </tbody>
-                    </table>
+                <div class="admin-card">
+                    <div class="admin-card-body" style="padding:0">
+                        <table class="admin-table">
+                            <thead><tr><th>#</th><th>Name</th><th>Est. Days</th><th>Cost</th><th>Free Above</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                ${options.map((d, i) => `
+                                    <tr>
+                                        <td>${i + 1}</td>
+                                        <td style="font-weight:600">${d.name}</td>
+                                        <td>${d.estimatedDays} days</td>
+                                        <td>${HJKUtils.formatPrice(d.cost)}</td>
+                                        <td>${d.freeAbove ? HJKUtils.formatPrice(d.freeAbove) : '-'}</td>
+                                        <td>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" ${d.isActive ? 'checked' : ''} onchange="AdminDelivery.toggleStatus('${d.id}')">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </td>
+                                        <td>
+                                            <div class="table-actions">
+                                                <button class="table-action-btn edit" onclick="AdminDelivery.showForm('${d.id}')"><i class="fa-solid fa-pen"></i></button>
+                                                <button class="table-action-btn delete" onclick="AdminDelivery.delete('${d.id}')"><i class="fa-solid fa-trash"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${options.length === 0 ? '<tr><td colspan="7" class="text-center text-muted py-4">No delivery options</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            <div id="deliveryFormModal"></div>`;
+                <div id="deliveryFormModal"></div>`;
+        } catch (err) {
+            content.innerHTML = `<div class="text-center py-5 text-danger">${err.message}</div>`;
+            AdminComponents.showToast(err.message, 'error');
+        }
     },
 
-    toggleStatus(id, isActive) {
-        const options = HJKUtils.store.get('hjk_delivery_options') || [];
-        const opt = options.find(d => d.id === id);
-        if (opt) { opt.isActive = isActive; HJKUtils.store.set('hjk_delivery_options', options); }
+    async toggleStatus(id) {
+        try {
+            const response = await HJKAPI.admin.delivery.toggle(id);
+            if (!response.success) throw new Error(response.message);
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
+            this.render();
+        }
     },
 
     delete(id) {
-        AdminComponents.showConfirm('Delete Delivery Method', 'Are you sure?', () => {
-            let options = HJKUtils.store.get('hjk_delivery_options') || [];
-            options = options.filter(d => d.id !== id);
-            HJKUtils.store.set('hjk_delivery_options', options);
-            AdminComponents.showToast('Delivery method deleted', 'success');
-            this.render();
+        AdminComponents.showConfirm('Delete Delivery Method', 'Are you sure?', async () => {
+            try {
+                const response = await HJKAPI.admin.delivery.delete(id);
+                if (!response.success) throw new Error(response.message);
+                AdminComponents.showToast('Delivery method deleted', 'success');
+                this.render();
+            } catch (err) {
+                AdminComponents.showToast(err.message, 'error');
+            }
         });
     },
 
-    showForm(id) {
-        const options = HJKUtils.store.get('hjk_delivery_options') || [];
-        const opt = id ? options.find(d => d.id === id) : null;
+    async showForm(id) {
+        let opt = null;
+        if (id) {
+            try {
+                const response = await HJKAPI.admin.delivery.list();
+                if (response.success) {
+                    opt = (response.data || []).find(d => d.id === id) || null;
+                }
+            } catch (err) {
+                AdminComponents.showToast(err.message, 'error');
+                return;
+            }
+        }
 
         const modal = document.getElementById('deliveryFormModal');
         modal.innerHTML = `
@@ -96,22 +123,24 @@ const AdminDelivery = {
             </div>`;
     },
 
-    save(e, id) {
+    async save(e, id) {
         e.preventDefault();
         const name = document.getElementById('delName').value.trim();
         const estimatedDays = document.getElementById('delDays').value.trim();
         const cost = parseFloat(document.getElementById('delCost').value) || 0;
         const freeAbove = parseFloat(document.getElementById('delFreeAbove').value) || 0;
 
-        const options = HJKUtils.store.get('hjk_delivery_options') || [];
-        if (id) {
-            const opt = options.find(d => d.id === id);
-            if (opt) Object.assign(opt, { name, estimatedDays, cost, freeAbove });
-        } else {
-            options.push({ id: HJKUtils.generateId('del'), name, estimatedDays, cost, freeAbove, isActive: true });
+        try {
+            const data = { name, estimatedDays, cost, freeAbove };
+            if (id) data.id = id;
+
+            const response = await HJKAPI.admin.delivery.save(data);
+            if (!response.success) throw new Error(response.message);
+
+            AdminComponents.showToast(`Delivery method ${id ? 'updated' : 'created'}`, 'success');
+            this.render();
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
         }
-        HJKUtils.store.set('hjk_delivery_options', options);
-        AdminComponents.showToast(`Delivery method ${id ? 'updated' : 'created'}`, 'success');
-        this.render();
     }
 };

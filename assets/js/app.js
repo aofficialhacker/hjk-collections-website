@@ -3,8 +3,17 @@
    ============================================ */
 
 const HJKApp = {
-    init() {
-        HJKData.init();
+    _session: null,
+    _settings: null,
+    _categories: null,
+    _ready: false,
+
+    async init() {
+        await this.loadSession();
+        await this.loadSettings();
+        await this.loadCategories();
+        await this.loadWishlist();
+        this._ready = true;
         this.renderComponents();
         this.initBackToTop();
         this.initAnnouncementBar();
@@ -12,24 +21,69 @@ const HJKApp = {
         this.updateWishlistBadge();
     },
 
+    async loadSession() {
+        try {
+            const res = await HJKAPI.auth.session();
+            if (res.success && res.data.loggedIn) {
+                this._session = res.data.user;
+            } else {
+                this._session = null;
+            }
+        } catch {
+            this._session = null;
+        }
+    },
+
+    async loadSettings() {
+        try {
+            // Cache settings in sessionStorage for performance
+            const cached = sessionStorage.getItem('hjk_settings_cache');
+            if (cached) {
+                this._settings = JSON.parse(cached);
+                return;
+            }
+            const res = await HJKAPI.settings.get();
+            if (res.success) {
+                this._settings = res.data;
+                sessionStorage.setItem('hjk_settings_cache', JSON.stringify(res.data));
+            }
+        } catch {
+            this._settings = null;
+        }
+    },
+
+    async loadCategories() {
+        try {
+            const cached = sessionStorage.getItem('hjk_categories_cache');
+            if (cached) {
+                this._categories = JSON.parse(cached);
+                return;
+            }
+            const res = await HJKAPI.categories.list();
+            if (res.success) {
+                this._categories = res.data;
+                sessionStorage.setItem('hjk_categories_cache', JSON.stringify(res.data));
+            }
+        } catch {
+            this._categories = [];
+        }
+    },
+
     renderComponents() {
-        // Render header
         const headerEl = document.getElementById('header');
         if (headerEl) {
             headerEl.innerHTML = HJKComponents.renderHeader();
             HJKComponents.initHeaderEvents();
         }
 
-        // Render footer
         const footerEl = document.getElementById('footer');
         if (footerEl) {
             footerEl.innerHTML = HJKComponents.renderFooter();
         }
 
-        // Render announcement bar
         const announcementEl = document.getElementById('announcement-bar');
         if (announcementEl) {
-            const settings = HJKUtils.store.get('hjk_settings');
+            const settings = this.getSettings();
             if (settings && settings.headerAnnouncement) {
                 announcementEl.innerHTML = `<div class="announcement-bar"><div class="container-custom">${settings.headerAnnouncement}</div></div>`;
             }
@@ -38,44 +92,57 @@ const HJKApp = {
 
     // Auth helpers
     isLoggedIn() {
-        const session = HJKUtils.store.get('hjk_session');
-        return session && session.isLoggedIn;
+        return this._session !== null;
     },
 
     getCurrentUser() {
-        const session = HJKUtils.store.get('hjk_session');
-        if (!session || !session.isLoggedIn) return null;
-        const users = HJKUtils.store.get('hjk_users') || [];
-        return users.find(u => u.id === session.userId) || null;
+        return this._session;
     },
 
     isAdmin() {
-        const session = HJKUtils.store.get('hjk_admin_session');
-        return session && session.isLoggedIn;
+        // Check admin session via cookie-based session (the session.php returns adminLoggedIn)
+        return this._session && this._session.role === 'superadmin';
     },
 
     getAdminUser() {
-        const session = HJKUtils.store.get('hjk_admin_session');
-        if (!session || !session.isLoggedIn) return null;
-        const users = HJKUtils.store.get('hjk_users') || [];
-        return users.find(u => u.id === session.userId) || null;
+        if (this.isAdmin()) return this._session;
+        return null;
     },
 
-    logout() {
-        HJKUtils.store.remove('hjk_session');
-        HJKUtils.store.remove('hjk_cart');
-        window.location.href = 'login.html';
+    getSettings() {
+        return this._settings;
     },
 
-    adminLogout() {
-        HJKUtils.store.remove('hjk_admin_session');
-        window.location.href = 'login.html';
+    getCategories() {
+        return this._categories || [];
+    },
+
+    getCategory(id) {
+        return (this._categories || []).find(c => c.id === id || c.id === parseInt(id));
+    },
+
+    async logout() {
+        try {
+            await HJKAPI.auth.logout();
+        } catch {}
+        this._session = null;
+        sessionStorage.clear();
+        window.location.href = '/login.html';
+    },
+
+    async adminLogout() {
+        try {
+            await HJKAPI.auth.logout();
+        } catch {}
+        this._session = null;
+        sessionStorage.clear();
+        window.location.href = '/admin/login.html';
     },
 
     requireLogin(redirectUrl) {
         if (!this.isLoggedIn()) {
             sessionStorage.setItem('hjk_redirect', redirectUrl || window.location.href);
-            window.location.href = 'login.html';
+            window.location.href = '/login.html';
             return false;
         }
         return true;
@@ -83,80 +150,66 @@ const HJKApp = {
 
     requireAdmin() {
         if (!this.isAdmin()) {
-            window.location.href = 'admin/login.html';
+            window.location.href = '/admin/login.html';
             return false;
         }
         return true;
     },
 
-    // Cart helpers
-    getCart() {
-        return HJKUtils.store.get('hjk_cart') || { userId: null, items: [], updatedAt: new Date().toISOString() };
-    },
-
-    saveCart(cart) {
-        cart.updatedAt = new Date().toISOString();
-        if (this.isLoggedIn()) {
-            cart.userId = this.getCurrentUser().id;
+    // Cart helpers - now async via API
+    async addToCart(productId, variantId, size, quantity = 1) {
+        if (!this.isLoggedIn()) {
+            this.requireLogin();
+            return;
         }
-        HJKUtils.store.set('hjk_cart', cart);
-        this.updateCartBadge();
-    },
-
-    addToCart(productId, variantId, size, quantity = 1) {
-        const cart = this.getCart();
-        const existing = cart.items.find(i => i.productId === productId && i.variantId === variantId && i.size === size);
-
-        if (existing) {
-            existing.quantity += quantity;
-        } else {
-            const products = HJKUtils.store.get('hjk_products') || [];
-            const product = products.find(p => p.id === productId);
-            if (!product) return;
-            const variant = product.variants.find(v => v.id === variantId);
-            if (!variant) return;
-            const sizeData = variant.sizes.find(s => s.size === size);
-            if (!sizeData) return;
-
-            cart.items.push({
-                id: HJKUtils.generateId('cart'),
-                productId, variantId, size, quantity,
-                priceAtAdd: sizeData.sellingPrice,
-                addedAt: new Date().toISOString()
-            });
+        try {
+            const res = await HJKAPI.cart.add(productId, variantId, size, quantity);
+            if (res.success) {
+                this._cartCount = res.data.cartCount;
+                this.updateCartBadge();
+                HJKComponents.showToast('Added to cart!', 'success');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to add to cart', 'error');
         }
-        this.saveCart(cart);
-        HJKComponents.showToast('Added to cart!', 'success');
     },
 
-    removeFromCart(cartItemId) {
-        const cart = this.getCart();
-        cart.items = cart.items.filter(i => i.id !== cartItemId);
-        this.saveCart(cart);
-    },
-
-    updateCartQuantity(cartItemId, quantity) {
-        const cart = this.getCart();
-        const item = cart.items.find(i => i.id === cartItemId);
-        if (item) {
-            item.quantity = Math.max(1, quantity);
+    async removeFromCart(cartItemId) {
+        try {
+            const res = await HJKAPI.cart.remove(cartItemId);
+            if (res.success) {
+                this._cartCount = res.data.cartCount;
+                this.updateCartBadge();
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to remove item', 'error');
         }
-        this.saveCart(cart);
     },
 
-    getCartTotal() {
-        const cart = this.getCart();
-        return cart.items.reduce((sum, item) => sum + (item.priceAtAdd * item.quantity), 0);
+    async updateCartQuantity(cartItemId, quantity) {
+        try {
+            await HJKAPI.cart.update(cartItemId, quantity);
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to update cart', 'error');
+        }
     },
 
-    getCartCount() {
-        const cart = this.getCart();
-        return cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    async getCartCount() {
+        if (!this.isLoggedIn()) return 0;
+        if (this._cartCount !== undefined) return this._cartCount;
+        try {
+            const res = await HJKAPI.cart.get();
+            if (res.success) {
+                this._cartCount = res.data.itemCount;
+                return this._cartCount;
+            }
+        } catch {}
+        return 0;
     },
 
-    updateCartBadge() {
+    async updateCartBadge() {
+        const count = await this.getCartCount();
         const badges = document.querySelectorAll('.cart-badge');
-        const count = this.getCartCount();
         badges.forEach(badge => {
             badge.textContent = count;
             badge.style.display = count > 0 ? 'flex' : 'none';
@@ -164,50 +217,71 @@ const HJKApp = {
     },
 
     // Wishlist helpers
-    getWishlist() {
-        return HJKUtils.store.get('hjk_wishlist') || [];
+    async toggleWishlist(productId, variantId) {
+        if (!this.isLoggedIn()) {
+            this.requireLogin();
+            return;
+        }
+        try {
+            const res = await HJKAPI.wishlist.toggle(productId, variantId);
+            if (res.success) {
+                this._wishlistCount = res.data.wishlistCount;
+                // Refresh cached wishlist items
+                await this.loadWishlist();
+                this.updateWishlistBadge();
+                HJKComponents.showToast(res.message, res.data.action === 'added' ? 'success' : 'info');
+                return res.data.inWishlist;
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to update wishlist', 'error');
+        }
+        return false;
     },
 
-    toggleWishlist(productId, variantId) {
-        let wishlist = this.getWishlist();
-        const idx = wishlist.findIndex(w => w.productId === productId);
+    // Synchronous check using cached data (for use in rendering)
+    isInWishlist(productId) {
+        if (!this.isLoggedIn()) return false;
+        return (this._wishlistItems || []).some(w => w.productId == productId);
+    },
 
-        if (idx > -1) {
-            wishlist.splice(idx, 1);
-            HJKUtils.store.set('hjk_wishlist', wishlist);
-            this.updateWishlistBadge();
-            HJKComponents.showToast('Removed from wishlist', 'info');
-            return false;
-        } else {
-            wishlist.push({
-                id: HJKUtils.generateId('wish'),
-                userId: this.isLoggedIn() ? this.getCurrentUser().id : null,
-                productId,
-                variantId: variantId || null,
-                addedAt: new Date().toISOString()
-            });
-            HJKUtils.store.set('hjk_wishlist', wishlist);
-            this.updateWishlistBadge();
-            HJKComponents.showToast('Added to wishlist!', 'success');
-            return true;
+    // Load wishlist data from API into cache
+    async loadWishlist() {
+        if (!this.isLoggedIn()) return;
+        try {
+            const res = await HJKAPI.wishlist.get();
+            if (res.success) {
+                this._wishlistItems = res.data;
+                this._wishlistCount = res.data.length;
+            }
+        } catch {
+            this._wishlistItems = [];
         }
     },
 
-    isInWishlist(productId) {
-        const wishlist = this.getWishlist();
-        return wishlist.some(w => w.productId === productId);
-    },
-
-    updateWishlistBadge() {
+    async updateWishlistBadge() {
+        let count = 0;
+        if (this.isLoggedIn()) {
+            if (this._wishlistCount !== undefined) {
+                count = this._wishlistCount;
+            } else {
+                try {
+                    const res = await HJKAPI.wishlist.get();
+                    if (res.success) {
+                        count = res.data.length;
+                        this._wishlistCount = count;
+                        this._wishlistItems = res.data;
+                    }
+                } catch {}
+            }
+        }
         const badges = document.querySelectorAll('.wishlist-badge');
-        const count = this.getWishlist().length;
         badges.forEach(badge => {
             badge.textContent = count;
             badge.style.display = count > 0 ? 'flex' : 'none';
         });
     },
 
-    // Recently viewed
+    // Recently viewed (keep in localStorage - no need for API)
     addToRecentlyViewed(productId) {
         let recent = HJKUtils.store.get('hjk_recently_viewed') || [];
         recent = recent.filter(id => id !== productId);
@@ -238,40 +312,24 @@ const HJKApp = {
     },
 
     initAnnouncementBar() {
-        // Can be closed
         const bar = document.querySelector('.announcement-bar');
         if (bar && !sessionStorage.getItem('hjk_announcement_closed')) {
             bar.style.display = 'block';
         }
     },
 
-    // Product helpers
-    getProduct(productId) {
-        const products = HJKUtils.store.get('hjk_products') || [];
-        return products.find(p => p.id === productId);
-    },
-
-    getCategory(categoryId) {
-        const categories = HJKUtils.store.get('hjk_categories') || [];
-        return categories.find(c => c.id === categoryId);
-    },
-
-    // Search products
-    searchProducts(query) {
-        const products = HJKUtils.store.get('hjk_products') || [];
-        const q = query.toLowerCase().trim();
-        if (!q) return [];
-        return products.filter(p =>
-            p.isActive &&
-            (p.name.toLowerCase().includes(q) ||
-             p.shortDescription.toLowerCase().includes(q) ||
-             p.tags.some(t => t.toLowerCase().includes(q)))
-        ).slice(0, 8);
+    // Search products via API
+    async searchProducts(query) {
+        try {
+            const res = await HJKAPI.products.search(query);
+            return res.success ? res.data : [];
+        } catch {
+            return [];
+        }
     }
 };
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Small delay to ensure data.js has initialized
-    setTimeout(() => HJKApp.init(), 50);
+    HJKApp.init();
 });

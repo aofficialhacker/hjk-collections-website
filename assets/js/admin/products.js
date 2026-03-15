@@ -14,138 +14,173 @@ const AdminProducts = {
         this.render();
     },
 
-    render() {
+    async render() {
         const content = document.getElementById('adminContent');
-        let products = HJKUtils.store.get('hjk_products') || [];
-        const categories = HJKUtils.store.get('hjk_categories') || [];
+        content.innerHTML = '<div class="text-center py-5"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
 
-        if (this.searchQuery) products = products.filter(p => p.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
-        if (this.filterCategory) products = products.filter(p => p.categoryId === this.filterCategory);
+        try {
+            const params = {
+                page: this.currentPage,
+                perPage: this.perPage
+            };
+            if (this.searchQuery) params.search = this.searchQuery;
+            if (this.filterCategory) params.category = this.filterCategory;
 
-        const total = products.length;
-        const totalPages = Math.ceil(total / this.perPage);
-        const start = (this.currentPage - 1) * this.perPage;
-        const pageProducts = products.slice(start, start + this.perPage);
+            const [prodResponse, catResponse] = await Promise.all([
+                HJKAPI.admin.products.list(params),
+                HJKAPI.admin.categories.list()
+            ]);
 
-        content.innerHTML = `
-            <div class="admin-toolbar">
-                <div class="toolbar-left">
-                    <div class="admin-search">
-                        <i class="fa-solid fa-search"></i>
-                        <input type="text" placeholder="Search products..." value="${this.searchQuery}" oninput="AdminProducts.searchQuery=this.value;AdminProducts.currentPage=1;AdminProducts.render()">
+            if (!prodResponse.success) throw new Error(prodResponse.message || 'Failed to load products');
+
+            const products = prodResponse.data || [];
+            const categories = catResponse.success ? (catResponse.data || []) : [];
+            const pagination = prodResponse.pagination || { total: products.length, page: 1, totalPages: 1 };
+            const total = pagination.total;
+            const totalPages = pagination.totalPages;
+            const start = (this.currentPage - 1) * this.perPage;
+
+            content.innerHTML = `
+                <div class="admin-toolbar">
+                    <div class="toolbar-left">
+                        <div class="admin-search">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" placeholder="Search products..." value="${this.searchQuery}" oninput="AdminProducts.searchQuery=this.value;AdminProducts.currentPage=1;AdminProducts.render()">
+                        </div>
+                        <select class="admin-filter-select" onchange="AdminProducts.filterCategory=this.value;AdminProducts.currentPage=1;AdminProducts.render()">
+                            <option value="">All Categories</option>
+                            ${categories.map(c => `<option value="${c.id}" ${this.filterCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                        </select>
                     </div>
-                    <select class="admin-filter-select" onchange="AdminProducts.filterCategory=this.value;AdminProducts.currentPage=1;AdminProducts.render()">
-                        <option value="">All Categories</option>
-                        ${categories.map(c => `<option value="${c.id}" ${this.filterCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
-                    </select>
+                    <div class="toolbar-right">
+                        <button class="btn-outline-custom btn-sm" onclick="AdminProducts.exportCSV()"><i class="fa-solid fa-download me-1"></i>Export</button>
+                        <a href="form.html" class="btn-primary-custom btn-sm"><i class="fa-solid fa-plus me-1"></i>Add Product</a>
+                    </div>
                 </div>
-                <div class="toolbar-right">
-                    <button class="btn-outline-custom btn-sm" onclick="AdminProducts.exportCSV()"><i class="fa-solid fa-download me-1"></i>Export</button>
-                    <a href="form.html" class="btn-primary-custom btn-sm"><i class="fa-solid fa-plus me-1"></i>Add Product</a>
-                </div>
-            </div>
 
-            <div class="admin-card">
-                <div class="admin-card-body" style="padding:0;overflow-x:auto">
-                    <table class="admin-table">
-                        <thead>
-                            <tr><th style="width:50px">#</th><th style="width:60px">Image</th><th>Name</th><th>Category</th><th>Variants</th><th>Price Range</th><th>Stock</th><th>Status</th><th style="width:140px">Actions</th></tr>
-                        </thead>
-                        <tbody>
-                            ${pageProducts.map((p, i) => {
-                                const cat = categories.find(c => c.id === p.categoryId);
-                                const firstImg = p.variants[0]?.images?.[0] || '';
-                                const priceInfo = HJKUtils.getLowestPrice(p);
-                                const totalStock = HJKUtils.getTotalStock(p);
-                                return `<tr>
-                                    <td>${start + i + 1}</td>
-                                    <td><img src="${firstImg}" class="table-img" alt="${p.name}"></td>
-                                    <td><div style="font-weight:600">${p.name}</div><div style="font-size:0.75rem;color:var(--text-muted)">${p.id}</div></td>
-                                    <td>${cat?.name || '-'}</td>
-                                    <td>${p.variants.length} colors</td>
-                                    <td>${HJKUtils.renderPrice(priceInfo.normalPrice, priceInfo.sellingPrice)}</td>
-                                    <td><span class="badge" style="background:${totalStock <= 5 ? 'var(--danger)' : totalStock <= 20 ? 'var(--warning)' : 'var(--success)'};color:#fff;padding:4px 10px;border-radius:20px;font-size:0.75rem">${totalStock}</span></td>
-                                    <td>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" ${p.isActive ? 'checked' : ''} onchange="AdminProducts.toggleStatus('${p.id}',this.checked)">
-                                            <span class="toggle-slider"></span>
-                                        </label>
-                                    </td>
-                                    <td>
-                                        <div class="table-actions">
-                                            <a href="form.html?id=${p.id}" class="table-action-btn edit" title="Edit"><i class="fa-solid fa-pen"></i></a>
-                                            <button class="table-action-btn view" title="Duplicate" onclick="AdminProducts.duplicate('${p.id}')"><i class="fa-solid fa-copy"></i></button>
-                                            <button class="table-action-btn delete" title="Delete" onclick="AdminProducts.delete('${p.id}')"><i class="fa-solid fa-trash"></i></button>
-                                        </div>
-                                    </td>
-                                </tr>`;
-                            }).join('')}
-                            ${pageProducts.length === 0 ? '<tr><td colspan="9" class="text-center text-muted py-4">No products found</td></tr>' : ''}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="admin-card-footer">
-                    <span style="font-size:0.85rem;color:var(--text-muted)">Showing ${start + 1}-${Math.min(start + this.perPage, total)} of ${total}</span>
-                    ${AdminComponents.renderPagination(this.currentPage, totalPages, 'AdminProducts.goToPage')}
-                </div>
-            </div>`;
+                <div class="admin-card">
+                    <div class="admin-card-body" style="padding:0;overflow-x:auto">
+                        <table class="admin-table">
+                            <thead>
+                                <tr><th style="width:50px">#</th><th style="width:60px">Image</th><th>Name</th><th>Category</th><th>Variants</th><th>Price Range</th><th>Stock</th><th>Status</th><th style="width:140px">Actions</th></tr>
+                            </thead>
+                            <tbody>
+                                ${products.map((p, i) => {
+                                    return `<tr>
+                                        <td>${start + i + 1}</td>
+                                        <td><img src="${p.image || ''}" class="table-img" alt="${p.name}"></td>
+                                        <td><div style="font-weight:600">${p.name}</div><div style="font-size:0.75rem;color:var(--text-muted)">${p.id}</div></td>
+                                        <td>${p.categoryName || '-'}</td>
+                                        <td>-</td>
+                                        <td>${p.minPrice != null ? HJKUtils.formatPrice(p.minPrice) : '-'}</td>
+                                        <td><span class="badge" style="background:var(--text-muted);color:#fff;padding:4px 10px;border-radius:20px;font-size:0.75rem">-</span></td>
+                                        <td>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" ${p.isActive ? 'checked' : ''} onchange="AdminProducts.toggleStatus('${p.id}')">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </td>
+                                        <td>
+                                            <div class="table-actions">
+                                                <a href="form.html?id=${p.id}" class="table-action-btn edit" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                                                <button class="table-action-btn view" title="Duplicate" onclick="AdminProducts.duplicate('${p.id}')"><i class="fa-solid fa-copy"></i></button>
+                                                <button class="table-action-btn delete" title="Delete" onclick="AdminProducts.delete('${p.id}')"><i class="fa-solid fa-trash"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                                ${products.length === 0 ? '<tr><td colspan="9" class="text-center text-muted py-4">No products found</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="admin-card-footer">
+                        <span style="font-size:0.85rem;color:var(--text-muted)">Showing ${Math.min(start + 1, total)}-${Math.min(start + this.perPage, total)} of ${total}</span>
+                        ${AdminComponents.renderPagination(this.currentPage, totalPages, 'AdminProducts.goToPage')}
+                    </div>
+                </div>`;
+        } catch (err) {
+            content.innerHTML = `<div class="text-center py-5 text-danger">${err.message}</div>`;
+            AdminComponents.showToast(err.message, 'error');
+        }
     },
 
     goToPage(page) { this.currentPage = page; this.render(); },
 
-    toggleStatus(id, isActive) {
-        const products = HJKUtils.store.get('hjk_products') || [];
-        const p = products.find(x => x.id === id);
-        if (p) { p.isActive = isActive; HJKUtils.store.set('hjk_products', products); }
-    },
-
-    duplicate(id) {
-        const products = HJKUtils.store.get('hjk_products') || [];
-        const p = products.find(x => x.id === id);
-        if (p) {
-            const newP = HJKUtils.clone(p);
-            newP.id = HJKUtils.generateId('prod');
-            newP.name = p.name + ' (Copy)';
-            newP.slug = HJKUtils.slugify(newP.name);
-            newP.variants.forEach(v => { v.id = HJKUtils.generateId('var'); });
-            newP.createdAt = new Date().toISOString();
-            products.push(newP);
-            HJKUtils.store.set('hjk_products', products);
-            AdminComponents.showToast('Product duplicated', 'success');
+    async toggleStatus(id) {
+        try {
+            const response = await HJKAPI.admin.products.toggle(id);
+            if (!response.success) throw new Error(response.message);
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
             this.render();
         }
     },
 
-    delete(id) {
-        AdminComponents.showConfirm('Delete Product', 'Are you sure? This will permanently delete this product.', () => {
-            let products = HJKUtils.store.get('hjk_products') || [];
-            products = products.filter(p => p.id !== id);
-            HJKUtils.store.set('hjk_products', products);
-            AdminComponents.showToast('Product deleted', 'success');
+    async duplicate(id) {
+        try {
+            const response = await HJKAPI.admin.products.duplicate(id);
+            if (!response.success) throw new Error(response.message);
+            AdminComponents.showToast('Product duplicated', 'success');
             this.render();
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
+        }
+    },
+
+    delete(id) {
+        AdminComponents.showConfirm('Delete Product', 'Are you sure? This will permanently delete this product.', async () => {
+            try {
+                const response = await HJKAPI.admin.products.delete(id);
+                if (!response.success) throw new Error(response.message);
+                AdminComponents.showToast('Product deleted', 'success');
+                this.render();
+            } catch (err) {
+                AdminComponents.showToast(err.message, 'error');
+            }
         });
     },
 
-    exportCSV() {
-        const products = HJKUtils.store.get('hjk_products') || [];
-        const categories = HJKUtils.store.get('hjk_categories') || [];
-        const rows = [['Name', 'Category', 'Variants', 'Total Stock', 'Min Price', 'Status']];
-        products.forEach(p => {
-            const cat = categories.find(c => c.id === p.categoryId);
-            const price = HJKUtils.getLowestPrice(p);
-            rows.push([p.name, cat?.name || '', p.variants.length, HJKUtils.getTotalStock(p), price.selling || price.normal, p.isActive ? 'Active' : 'Inactive']);
-        });
-        HJKUtils.exportCSV(rows, 'products-export.csv');
+    async exportCSV() {
+        try {
+            const prodResponse = await HJKAPI.admin.products.list({ perPage: 9999 });
+            const products = prodResponse.success ? (prodResponse.data || []) : [];
+            const rows = [['Name', 'Category', 'Min Price', 'Status']];
+            products.forEach(p => {
+                rows.push([p.name, p.categoryName || '', p.minPrice || '', p.isActive ? 'Active' : 'Inactive']);
+            });
+            HJKUtils.exportCSV(rows, 'products-export.csv');
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
+        }
     },
 
     // Product Form
     initForm() {
         if (!AdminComponents.getAdminPageShell('products', 'Product Form')) return;
+        this.loadForm();
+    },
+
+    async loadForm() {
         const id = HJKUtils.getUrlParam('id');
-        const products = HJKUtils.store.get('hjk_products') || [];
-        const product = id ? products.find(p => p.id === id) : null;
-        const categories = HJKUtils.store.get('hjk_categories') || [];
         const content = document.getElementById('adminContent');
+        content.innerHTML = '<div class="text-center py-5"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
+
+        let product = null;
+        let categories = [];
+
+        try {
+            const catResponse = await HJKAPI.admin.categories.list();
+            categories = catResponse.success ? (catResponse.data || []) : [];
+
+            if (id) {
+                const prodResponse = await HJKAPI.admin.products.detail(id);
+                if (prodResponse.success) {
+                    product = prodResponse.data || null;
+                }
+            }
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
+        }
 
         this.variantCount = product ? product.variants.length : 1;
 
@@ -219,6 +254,7 @@ const AdminProducts = {
     },
 
     renderVariantBlock(variant, index) {
+        const existingImages = variant.images || [];
         return `
             <div class="variant-block" id="variant-${index}">
                 <div class="variant-block-header">
@@ -235,8 +271,17 @@ const AdminProducts = {
                         <input type="color" class="var-colorCode" value="${variant.colorCode || '#000000'}" style="width:100%;height:40px;padding:4px;border:1px solid var(--border);border-radius:var(--radius-sm)">
                     </div>
                     <div class="col-md-6">
-                        <label>Image URLs (comma separated) *</label>
-                        <input type="text" class="var-images" value="${(variant.images || []).join(', ')}" required placeholder="https://img1.jpg, https://img2.jpg">
+                        <label>Upload Images *</label>
+                        <input type="file" class="var-file-input" multiple accept="image/jpeg,image/png,image/webp,image/gif" onchange="AdminProducts.handleImageSelect(this, ${index})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff">
+                        <div class="var-image-preview" id="imagePreview-${index}" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                            ${existingImages.map((img, imgIdx) => `
+                                <div class="img-preview-item" style="position:relative;width:70px;height:70px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border)">
+                                    <img src="${img}" style="width:100%;height:100%;object-fit:cover">
+                                    <button type="button" onclick="AdminProducts.removeImage(${index}, ${imgIdx})" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer">&times;</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <input type="hidden" class="var-images" value='${JSON.stringify(existingImages)}'>
                     </div>
                 </div>
                 <div class="mb-2 d-flex justify-content-between align-items-center">
@@ -274,6 +319,77 @@ const AdminProducts = {
         if (el) el.remove();
     },
 
+    async handleImageSelect(input, variantIndex) {
+        const files = input.files;
+        if (!files || files.length === 0) return;
+
+        const block = document.getElementById('variant-' + variantIndex);
+        const hiddenInput = block.querySelector('.var-images');
+        const previewContainer = document.getElementById('imagePreview-' + variantIndex);
+        let existingUrls = [];
+        try { existingUrls = JSON.parse(hiddenInput.value || '[]'); } catch { existingUrls = []; }
+
+        // Upload files
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('images[]', files[i]);
+        }
+
+        try {
+            previewContainer.insertAdjacentHTML('beforeend', '<div class="img-upload-spinner" style="width:70px;height:70px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--radius-sm)"><i class="fa-solid fa-spinner fa-spin"></i></div>');
+
+            const res = await HJKAPI.admin.products.uploadImages(formData);
+            // Remove spinner
+            const spinner = previewContainer.querySelector('.img-upload-spinner');
+            if (spinner) spinner.remove();
+
+            if (res.success && res.data.urls) {
+                const newUrls = res.data.urls;
+                existingUrls = existingUrls.concat(newUrls);
+                hiddenInput.value = JSON.stringify(existingUrls);
+
+                // Add previews
+                newUrls.forEach((url, i) => {
+                    const imgIdx = existingUrls.length - newUrls.length + i;
+                    previewContainer.insertAdjacentHTML('beforeend', `
+                        <div class="img-preview-item" style="position:relative;width:70px;height:70px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border)">
+                            <img src="${url}" style="width:100%;height:100%;object-fit:cover">
+                            <button type="button" onclick="AdminProducts.removeImage(${variantIndex}, ${imgIdx})" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer">&times;</button>
+                        </div>
+                    `);
+                });
+
+                AdminComponents.showToast(`${newUrls.length} image(s) uploaded`, 'success');
+            }
+        } catch (err) {
+            const spinner = previewContainer.querySelector('.img-upload-spinner');
+            if (spinner) spinner.remove();
+            AdminComponents.showToast(err.message || 'Failed to upload images', 'error');
+        }
+
+        // Reset file input so same files can be selected again
+        input.value = '';
+    },
+
+    removeImage(variantIndex, imgIndex) {
+        const block = document.getElementById('variant-' + variantIndex);
+        const hiddenInput = block.querySelector('.var-images');
+        let urls = [];
+        try { urls = JSON.parse(hiddenInput.value || '[]'); } catch { urls = []; }
+
+        urls.splice(imgIndex, 1);
+        hiddenInput.value = JSON.stringify(urls);
+
+        // Re-render previews
+        const previewContainer = document.getElementById('imagePreview-' + variantIndex);
+        previewContainer.innerHTML = urls.map((url, idx) => `
+            <div class="img-preview-item" style="position:relative;width:70px;height:70px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border)">
+                <img src="${url}" style="width:100%;height:100%;object-fit:cover">
+                <button type="button" onclick="AdminProducts.removeImage(${variantIndex}, ${idx})" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer">&times;</button>
+            </div>
+        `).join('');
+    },
+
     addSizeRow(variantIndex) {
         const container = document.getElementById('sizeRows-' + variantIndex);
         const div = document.createElement('div');
@@ -288,7 +404,7 @@ const AdminProducts = {
         container.appendChild(div);
     },
 
-    saveForm(e, id) {
+    async saveForm(e, id) {
         e.preventDefault();
         const name = document.getElementById('prodName').value.trim();
         const shortDescription = document.getElementById('prodShortDesc').value.trim();
@@ -310,8 +426,8 @@ const AdminProducts = {
         variantBlocks.forEach(block => {
             const color = block.querySelector('.var-color').value.trim();
             const colorCode = block.querySelector('.var-colorCode').value;
-            const imagesStr = block.querySelector('.var-images').value.trim();
-            const images = imagesStr.split(',').map(s => s.trim()).filter(Boolean);
+            let images = [];
+            try { images = JSON.parse(block.querySelector('.var-images').value || '[]'); } catch { images = []; }
 
             if (!color || images.length === 0) { valid = false; return; }
 
@@ -328,7 +444,7 @@ const AdminProducts = {
 
             if (sizes.length === 0) { valid = false; return; }
 
-            variants.push({ id: HJKUtils.generateId('var'), color, colorCode, images, sizes });
+            variants.push({ color, colorCode, images, sizes });
         });
 
         if (!valid || variants.length === 0) {
@@ -336,18 +452,17 @@ const AdminProducts = {
             return;
         }
 
-        const products = HJKUtils.store.get('hjk_products') || [];
-        const slug = HJKUtils.slugify(name);
+        try {
+            const data = { name, shortDescription, description, categoryId, material, dimensions, weight, isActive, isFeatured, variants };
+            if (id) data.id = id;
 
-        if (id) {
-            const p = products.find(x => x.id === id);
-            if (p) Object.assign(p, { name, slug, shortDescription, description, categoryId, material, dimensions, weight, isActive, isFeatured, variants, updatedAt: new Date().toISOString() });
-        } else {
-            products.push({ id: HJKUtils.generateId('prod'), name, slug, shortDescription, description, categoryId, material, dimensions, weight, isActive, isFeatured, variants, avgRating: 0, reviewCount: 0, createdAt: new Date().toISOString() });
+            const response = await HJKAPI.admin.products.save(data);
+            if (!response.success) throw new Error(response.message);
+
+            AdminComponents.showToast(`Product ${id ? 'updated' : 'created'}!`, 'success');
+            setTimeout(() => { window.location.href = 'index.html'; }, 500);
+        } catch (err) {
+            AdminComponents.showToast(err.message, 'error');
         }
-
-        HJKUtils.store.set('hjk_products', products);
-        AdminComponents.showToast(`Product ${id ? 'updated' : 'created'}!`, 'success');
-        setTimeout(() => { window.location.href = 'index.html'; }, 500);
     }
 };

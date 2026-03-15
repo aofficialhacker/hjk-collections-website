@@ -22,20 +22,21 @@
     <footer id="footer"></footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/data.js"></script>
+    <script src="assets/js/api.js"></script>
     <script src="assets/js/utils.js"></script>
     <script src="assets/js/components.js"></script>
     <script src="assets/js/app.js"></script>
     <script src="assets/js/auth.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
+        setTimeout(async () => {
             document.getElementById('breadcrumbs').innerHTML = HJKComponents.renderBreadcrumbs([
                 { label: 'Home', url: 'index.html' },
                 { label: 'Shipping Policy' }
             ]);
 
-            const deliveryOptions = HJKUtils.store.get('hjk_delivery_options') || [];
+            let deliveryOptions = [];
+            try { const res = await HJKAPI.checkout.deliveryOptions(); if (res.success) deliveryOptions = res.data || []; } catch (e) {}
 
             document.getElementById('pageContent').innerHTML = `
                 <div class="content-card">

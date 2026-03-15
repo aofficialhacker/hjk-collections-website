@@ -5,20 +5,34 @@
 const HJKOrders = {
     currentFilter: 'all',
 
-    initOrdersPage() {
-        this.render();
+    async initOrdersPage() {
+        await this.render();
     },
 
-    render() {
-        const user = HJKApp.getCurrentUser();
-        const allOrders = (HJKUtils.store.get('hjk_orders') || []).filter(o => o.userId === user.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    async render() {
         const content = document.getElementById('profileContent');
+        if (!content) return;
 
-        let orders = allOrders;
-        if (this.currentFilter === 'active') orders = orders.filter(o => ['placed','confirmed','processing','shipped','out_for_delivery'].includes(o.orderStatus));
-        else if (this.currentFilter === 'delivered') orders = orders.filter(o => o.orderStatus === 'delivered');
-        else if (this.currentFilter === 'cancelled') orders = orders.filter(o => o.orderStatus === 'cancelled');
-        else if (this.currentFilter === 'returned') orders = orders.filter(o => ['return_requested','return_approved','returned','refunded'].includes(o.orderStatus));
+        let orders = [];
+        try {
+            const params = {};
+            if (this.currentFilter !== 'all') {
+                params.filter = this.currentFilter;
+            }
+            const res = await HJKAPI.orders.list(params);
+            if (res.success) {
+                orders = res.data || [];
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to load orders', 'error');
+        }
+
+        // Client-side filtering as fallback if API doesn't filter
+        let filtered = orders;
+        if (this.currentFilter === 'active') filtered = orders.filter(o => ['placed','confirmed','processing','shipped','out_for_delivery'].includes(o.orderStatus));
+        else if (this.currentFilter === 'delivered') filtered = orders.filter(o => o.orderStatus === 'delivered');
+        else if (this.currentFilter === 'cancelled') filtered = orders.filter(o => o.orderStatus === 'cancelled');
+        else if (this.currentFilter === 'returned') filtered = orders.filter(o => ['return_requested','return_approved','returned','refunded'].includes(o.orderStatus));
 
         const tabs = [
             { key: 'all', label: 'All' },
@@ -34,8 +48,8 @@ const HJKOrders = {
                 <div class="tabs-custom mb-4">
                     ${tabs.map(t => `<button class="tab-btn ${this.currentFilter === t.key ? 'active' : ''}" onclick="HJKOrders.filterOrders('${t.key}')">${t.label}</button>`).join('')}
                 </div>
-                ${orders.length === 0 ? HJKComponents.renderEmptyState('fa-box', 'No Orders', 'You don\'t have any orders in this category.', 'Start Shopping', '../products.html') :
-                orders.map(order => `
+                ${filtered.length === 0 ? HJKComponents.renderEmptyState('fa-box', 'No Orders', 'You don\'t have any orders in this category.', 'Start Shopping', '../products.html') :
+                filtered.map(order => `
                     <div class="order-card">
                         <div class="order-card-header">
                             <div>
@@ -46,7 +60,7 @@ const HJKOrders = {
                         </div>
                         <div class="order-card-body">
                             <div class="order-card-items">
-                                ${order.items.map(item => `
+                                ${(order.items || []).map(item => `
                                     <div class="d-flex gap-3 align-items-center">
                                         <img src="${item.image}" alt="${item.productName}" class="order-item-thumb">
                                         <div>
@@ -66,16 +80,24 @@ const HJKOrders = {
             </div>`;
     },
 
-    filterOrders(filter) {
+    async filterOrders(filter) {
         this.currentFilter = filter;
-        this.render();
+        await this.render();
     },
 
-    initOrderDetailPage() {
+    async initOrderDetailPage() {
         const orderId = HJKUtils.getUrlParam('orderId');
-        const orders = HJKUtils.store.get('hjk_orders') || [];
-        const order = orders.find(o => o.id === orderId);
         const content = document.getElementById('profileContent');
+
+        let order = null;
+        try {
+            const res = await HJKAPI.orders.detail(orderId);
+            if (res.success) {
+                order = res.data;
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to load order details', 'error');
+        }
 
         if (!order) {
             content.innerHTML = HJKComponents.renderEmptyState('fa-box', 'Order Not Found', '', 'Go to Orders', 'orders.html');
@@ -108,7 +130,7 @@ const HJKOrders = {
 
                 <!-- Items -->
                 <h6 class="font-heading mb-3">Order Items</h6>
-                ${order.items.map(item => `
+                ${(order.items || []).map(item => `
                     <div class="d-flex gap-3 mb-3 pb-3" style="border-bottom:1px solid var(--border)">
                         <img src="${item.image}" style="width:70px;height:70px;object-fit:cover;border-radius:var(--radius-sm)">
                         <div class="flex-grow-1">
@@ -156,26 +178,34 @@ const HJKOrders = {
     },
 
     cancelOrder(orderId) {
-        HJKComponents.showConfirm('Cancel Order', 'Are you sure you want to cancel this order? This action cannot be undone.', () => {
-            const orders = HJKUtils.store.get('hjk_orders') || [];
-            const order = orders.find(o => o.id === orderId);
-            if (order) {
-                order.orderStatus = 'cancelled';
-                order.paymentStatus = 'refunded';
-                order.statusHistory.push({ status: 'cancelled', timestamp: new Date().toISOString(), note: 'Cancelled by customer' });
-                order.updatedAt = new Date().toISOString();
-                HJKUtils.store.set('hjk_orders', orders);
-                HJKComponents.showToast('Order cancelled. Refund will be processed.', 'success');
-                this.initOrderDetailPage();
+        HJKComponents.showConfirm('Cancel Order', 'Are you sure you want to cancel this order? This action cannot be undone.', async () => {
+            try {
+                const res = await HJKAPI.orders.cancel(orderId, 'Cancelled by customer');
+                if (res.success) {
+                    HJKComponents.showToast('Order cancelled. Refund will be processed.', 'success');
+                    await this.initOrderDetailPage();
+                } else {
+                    HJKComponents.showToast(res.message || 'Failed to cancel order', 'error');
+                }
+            } catch (err) {
+                HJKComponents.showToast(err.message || 'Failed to cancel order', 'error');
             }
         });
     },
 
-    initReturnRequestPage() {
+    async initReturnRequestPage() {
         const orderId = HJKUtils.getUrlParam('orderId');
-        const orders = HJKUtils.store.get('hjk_orders') || [];
-        const order = orders.find(o => o.id === orderId);
         const content = document.getElementById('profileContent');
+
+        let order = null;
+        try {
+            const res = await HJKAPI.orders.detail(orderId);
+            if (res.success) {
+                order = res.data;
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to load order', 'error');
+        }
 
         if (!order || order.orderStatus !== 'delivered') {
             content.innerHTML = HJKComponents.renderEmptyState('fa-rotate-left', 'Cannot Process Return', 'This order is not eligible for return.', 'Go to Orders', 'orders.html');
@@ -214,7 +244,7 @@ const HJKOrders = {
             </div>`;
     },
 
-    submitReturn(e, orderId) {
+    async submitReturn(e, orderId) {
         e.preventDefault();
         const reason = document.getElementById('returnReason').value;
         const desc = document.getElementById('returnDesc').value.trim();
@@ -222,29 +252,22 @@ const HJKOrders = {
 
         if (!reason || !desc || !video) { HJKComponents.showToast('Please fill all fields and upload video', 'error'); return; }
 
-        const orders = HJKUtils.store.get('hjk_orders') || [];
-        const order = orders.find(o => o.id === orderId);
-        const user = HJKApp.getCurrentUser();
-        const returns = HJKUtils.store.get('hjk_returns') || [];
+        try {
+            const res = await HJKAPI.orders.submitReturn({
+                orderId,
+                reason,
+                description: desc,
+                videoFileName: video.name
+            });
 
-        returns.push({
-            id: HJKUtils.generateId('ret'), orderId, orderNumber: order?.orderNumber || '',
-            userId: user.id,
-            items: order ? order.items.map(i => ({ productId: i.productId, variantId: i.variantId, size: i.size, quantity: i.quantity, reason })) : [],
-            reason, description: desc, videoUrl: video.name,
-            status: 'pending', adminNote: '',
-            createdAt: new Date().toISOString()
-        });
-        HJKUtils.store.set('hjk_returns', returns);
-
-        if (order) {
-            order.orderStatus = 'return_requested';
-            order.statusHistory.push({ status: 'return_requested', timestamp: new Date().toISOString(), note: 'Return requested by customer' });
-            order.updatedAt = new Date().toISOString();
-            HJKUtils.store.set('hjk_orders', orders);
+            if (res.success) {
+                HJKComponents.showToast('Return request submitted! We will review it shortly.', 'success');
+                setTimeout(() => { window.location.href = 'orders.html'; }, 1500);
+            } else {
+                HJKComponents.showToast(res.message || 'Failed to submit return request', 'error');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to submit return request', 'error');
         }
-
-        HJKComponents.showToast('Return request submitted! We will review it shortly.', 'success');
-        setTimeout(() => { window.location.href = 'orders.html'; }, 1500);
     }
 };

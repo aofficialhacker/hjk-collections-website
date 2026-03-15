@@ -21,13 +21,7 @@ const AdminComponents = {
 
         const base = this.getAdminBase();
 
-        const orders = HJKUtils.store.get('hjk_orders') || [];
-        const reviews = HJKUtils.store.get('hjk_reviews') || [];
-        const returns = HJKUtils.store.get('hjk_returns') || [];
-        const pendingOrders = orders.filter(o => o.orderStatus === 'placed').length;
-        const pendingReviews = reviews.filter(r => r.status === 'pending').length;
-        const pendingReturns = returns.filter(r => r.status === 'pending').length;
-
+        // Sidebar badges will be loaded asynchronously
         const navItems = [
             { section: 'Main' },
             { key: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', url: base + 'index.html' },
@@ -37,17 +31,17 @@ const AdminComponents = {
             { key: 'products', label: 'Products', icon: 'fa-box', url: base + 'products/index.html' },
 
             { section: 'Sales' },
-            { key: 'orders', label: 'Orders', icon: 'fa-shopping-cart', url: base + 'orders/index.html', badge: pendingOrders },
+            { key: 'orders', label: 'Orders', icon: 'fa-shopping-cart', url: base + 'orders/index.html', badgeId: 'badge-orders' },
             { key: 'delivery', label: 'Delivery Options', icon: 'fa-truck', url: base + 'delivery/index.html' },
-            { key: 'returns', label: 'Returns', icon: 'fa-rotate-left', url: base + 'returns/index.html', badge: pendingReturns },
+            { key: 'returns', label: 'Returns', icon: 'fa-rotate-left', url: base + 'returns/index.html', badgeId: 'badge-returns' },
             { key: 'coupons', label: 'Coupons', icon: 'fa-ticket', url: base + 'coupons/index.html' },
 
             { section: 'Engagement' },
-            { key: 'reviews', label: 'Reviews', icon: 'fa-star', url: base + 'reviews/index.html', badge: pendingReviews },
+            { key: 'reviews', label: 'Reviews', icon: 'fa-star', url: base + 'reviews/index.html', badgeId: 'badge-reviews' },
             { key: 'customers', label: 'Customers', icon: 'fa-users', url: base + 'customers/index.html' },
 
             { section: 'Content' },
-            { key: 'cms', label: 'CMS Pages', icon: 'fa-file-lines', url: base + 'cms/pages.html' },
+            // { key: 'cms', label: 'CMS Pages', icon: 'fa-file-lines', url: base + 'cms/pages.html' },
             { key: 'banners', label: 'Banners', icon: 'fa-images', url: base + 'settings/banners.html' },
 
             { section: 'System' },
@@ -68,7 +62,7 @@ const AdminComponents = {
                     return `<a href="${item.url}" class="nav-item ${activePage === item.key ? 'active' : ''}">
                         <i class="fa-solid ${item.icon}"></i>
                         <span>${item.label}</span>
-                        ${item.badge ? `<span class="nav-badge">${item.badge}</span>` : ''}
+                        ${item.badgeId ? `<span class="nav-badge" id="${item.badgeId}" style="display:none"></span>` : ''}
                     </a>`;
                 }).join('')}
             </nav>
@@ -76,14 +70,44 @@ const AdminComponents = {
                 <a href="${base}../index.html" class="nav-item" style="padding:8px 0"><i class="fa-solid fa-globe"></i> View Store</a>
                 <a href="#" class="nav-item" style="padding:8px 0" onclick="AdminComponents.logout()"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
             </div>`;
+
+        // Load badge counts asynchronously from dashboard stats
+        this.loadSidebarBadges();
+    },
+
+    async loadSidebarBadges() {
+        try {
+            const response = await HJKAPI.admin.dashboard.stats();
+            if (response.success) {
+                const stats = response.data;
+                const pendingOrders = stats.ordersByStatus?.placed || 0;
+                const pendingReviews = stats.pendingReviews || 0;
+                const pendingReturns = stats.pendingReturns || 0;
+
+                if (pendingOrders > 0) {
+                    const el = document.getElementById('badge-orders');
+                    if (el) { el.textContent = pendingOrders; el.style.display = ''; }
+                }
+                if (pendingReviews > 0) {
+                    const el = document.getElementById('badge-reviews');
+                    if (el) { el.textContent = pendingReviews; el.style.display = ''; }
+                }
+                if (pendingReturns > 0) {
+                    const el = document.getElementById('badge-returns');
+                    if (el) { el.textContent = pendingReturns; el.style.display = ''; }
+                }
+            }
+        } catch (e) {
+            // Silently fail for sidebar badges
+        }
     },
 
     renderTopbar(title) {
         const topbar = document.getElementById('adminTopbar');
         if (!topbar) return;
 
-        const session = HJKUtils.store.get('hjk_admin_session');
-        const userName = session?.name || 'Admin';
+        const user = HJKApp.getCurrentUser();
+        const userName = user ? (user.firstName + ' ' + user.lastName) : 'Admin';
         const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
 
         topbar.innerHTML = `
@@ -120,13 +144,11 @@ const AdminComponents = {
     },
 
     logout() {
-        HJKUtils.store.remove('hjk_admin_session');
-        window.location.href = this.getAdminBase() + 'login.html';
+        HJKApp.adminLogout();
     },
 
     checkAuth() {
-        const session = HJKUtils.store.get('hjk_admin_session');
-        if (!session) {
+        if (!HJKApp.isLoggedIn()) {
             window.location.href = this.getAdminBase() + 'login.html';
             return false;
         }

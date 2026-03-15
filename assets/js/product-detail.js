@@ -8,30 +8,38 @@ const HJKProductDetail = {
     selectedSize: null,
     quantity: 1,
 
-    init() {
+    async init() {
         const productId = HJKUtils.getUrlParam('id');
-        if (!productId) { window.location.href = 'products.html'; return; }
+        const productSlug = HJKUtils.getUrlParam('slug');
+        const idOrSlug = productId || productSlug;
+        if (!idOrSlug) { window.location.href = 'products.html'; return; }
 
-        this.product = HJKApp.getProduct(productId);
-        if (!this.product) {
+        try {
+            const res = await HJKAPI.products.detail(idOrSlug);
+            if (!res.success || !res.data) {
+                document.getElementById('productDetail').innerHTML = HJKComponents.renderEmptyState('fa-bag-shopping', 'Product Not Found', 'The product you are looking for does not exist.', 'Browse Products', 'products.html');
+                return;
+            }
+            this.product = res.data;
+        } catch (err) {
             document.getElementById('productDetail').innerHTML = HJKComponents.renderEmptyState('fa-bag-shopping', 'Product Not Found', 'The product you are looking for does not exist.', 'Browse Products', 'products.html');
             return;
         }
 
-        HJKApp.addToRecentlyViewed(productId);
+        HJKApp.addToRecentlyViewed(this.product.id);
         this.selectedVariant = this.product.variants[0];
         this.selectedSize = this.selectedVariant.sizes[0];
         this.quantity = 1;
 
         this.renderBreadcrumbs();
         this.renderGallery();
-        this.renderProductInfo();
-        this.renderTabs();
-        this.renderRelated();
+        await this.renderProductInfo();
+        await this.renderTabs();
+        await this.renderRelated();
     },
 
     renderBreadcrumbs() {
-        const cat = HJKApp.getCategory(this.product.categoryId);
+        const cat = (HJKApp.getCategories() || []).find(c => c.id === this.product.categoryId);
         const bc = document.getElementById('breadcrumbContainer');
         if (bc) {
             const items = [];
@@ -77,13 +85,13 @@ const HJKProductDetail = {
         if (thumb) thumb.classList.add('active');
     },
 
-    renderProductInfo() {
+    async renderProductInfo() {
         const p = this.product;
         const v = this.selectedVariant;
         const s = this.selectedSize;
-        const cat = HJKApp.getCategory(p.categoryId);
+        const cat = (HJKApp.getCategories() || []).find(c => c.id === p.categoryId);
         const discount = HJKUtils.getDiscount(s.normalPrice, s.sellingPrice);
-        const isWished = HJKApp.isInWishlist(p.id);
+        const isWished = await HJKApp.isInWishlist(p.id);
         const pageUrl = window.location.href;
 
         let stockHtml = '';
@@ -179,18 +187,18 @@ const HJKProductDetail = {
         `;
     },
 
-    selectVariant(variantId) {
+    async selectVariant(variantId) {
         this.selectedVariant = this.product.variants.find(v => v.id === variantId);
         this.selectedSize = this.selectedVariant.sizes[0];
         this.quantity = 1;
         this.renderGallery();
-        this.renderProductInfo();
+        await this.renderProductInfo();
     },
 
-    selectSize(sizeName) {
+    async selectSize(sizeName) {
         this.selectedSize = this.selectedVariant.sizes.find(s => s.size === sizeName);
         this.quantity = 1;
-        this.renderProductInfo();
+        await this.renderProductInfo();
     },
 
     changeQty(delta) {
@@ -205,12 +213,12 @@ const HJKProductDetail = {
         if (input) input.value = this.quantity;
     },
 
-    addToCart() {
-        HJKApp.addToCart(this.product.id, this.selectedVariant.id, this.selectedSize.size, this.quantity);
+    async addToCart() {
+        await HJKApp.addToCart(this.product.id, this.selectedVariant.id, this.selectedSize.size, this.quantity);
     },
 
-    toggleWishlist() {
-        const isNow = HJKApp.toggleWishlist(this.product.id, this.selectedVariant.id);
+    async toggleWishlist() {
+        const isNow = await HJKApp.toggleWishlist(this.product.id, this.selectedVariant.id);
         const btn = document.getElementById('wishlistBtn');
         if (btn) {
             btn.classList.toggle('active', isNow);
@@ -218,9 +226,20 @@ const HJKProductDetail = {
         }
     },
 
-    renderTabs() {
+    async renderTabs() {
         const p = this.product;
-        const reviews = (HJKUtils.store.get('hjk_reviews') || []).filter(r => r.productId === p.id && r.status === 'approved');
+        let reviews = [];
+
+        try {
+            const res = await HJKAPI.reviews.list(p.id, { status: 'approved' });
+            if (res.success) {
+                reviews = res.data || [];
+            }
+        } catch (err) {
+            // Reviews failed to load, show empty
+        }
+
+        const cat = (HJKApp.getCategories() || []).find(c => c.id === p.categoryId);
 
         const container = document.getElementById('productTabs');
         container.innerHTML = `
@@ -236,7 +255,7 @@ const HJKProductDetail = {
 
             <div class="tab-content" id="tab-info">
                 <table class="table">
-                    <tr><td class="fw-600" style="width:200px">Category</td><td>${HJKApp.getCategory(p.categoryId)?.name || 'N/A'}</td></tr>
+                    <tr><td class="fw-600" style="width:200px">Category</td><td>${cat?.name || 'N/A'}</td></tr>
                     <tr><td class="fw-600">Available Colors</td><td>${p.variants.map(v => v.color).join(', ')}</td></tr>
                     <tr><td class="fw-600">Available Sizes</td><td>${[...new Set(p.variants.flatMap(v => v.sizes.map(s => s.size)))].join(', ')}</td></tr>
                     <tr><td class="fw-600">Tags</td><td>${p.tags.map(t => `<span class="chip">${t}</span>`).join(' ')}</td></tr>
@@ -344,7 +363,7 @@ const HJKProductDetail = {
         this.hoverStar(n);
     },
 
-    submitReview(e) {
+    async submitReview(e) {
         e.preventDefault();
         const rating = parseInt(document.getElementById('reviewRating').value);
         const title = document.getElementById('reviewTitle').value.trim();
@@ -352,36 +371,48 @@ const HJKProductDetail = {
 
         if (!rating) { HJKComponents.showToast('Please select a rating', 'error'); return; }
 
-        const user = HJKApp.getCurrentUser();
-        const reviews = HJKUtils.store.get('hjk_reviews') || [];
-        reviews.push({
-            id: HJKUtils.generateId('rev'),
-            productId: this.product.id,
-            userId: user.id,
-            userName: user.firstName + ' ' + user.lastName.charAt(0) + '.',
-            rating, title, comment,
-            status: 'pending',
-            adminReply: '',
-            createdAt: new Date().toISOString()
-        });
-        HJKUtils.store.set('hjk_reviews', reviews);
-        HJKComponents.showToast('Review submitted! It will appear after admin approval.', 'success');
-        this.renderTabs();
+        try {
+            const res = await HJKAPI.reviews.create({
+                productId: this.product.id,
+                rating,
+                title,
+                comment
+            });
+            if (res.success) {
+                HJKComponents.showToast('Review submitted! It will appear after admin approval.', 'success');
+                await this.renderTabs();
+            } else {
+                HJKComponents.showToast(res.message || 'Failed to submit review', 'error');
+            }
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to submit review', 'error');
+        }
     },
 
-    renderRelated() {
-        const products = (HJKUtils.store.get('hjk_products') || [])
-            .filter(p => p.isActive && p.categoryId === this.product.categoryId && p.id !== this.product.id)
-            .slice(0, 4);
-
+    async renderRelated() {
         const container = document.getElementById('relatedProducts');
-        if (!container || products.length === 0) return;
+        if (!container) return;
 
-        container.innerHTML = `
-            <div class="section-title"><h2>Related Products</h2></div>
-            <div class="products-grid">
-                ${products.map(p => HJKComponents.renderProductCard(p)).join('')}
-            </div>`;
+        try {
+            // Fetch products in same category
+            const res = await HJKAPI.products.list({
+                category: this.product.categoryId,
+                limit: 5,
+                active: 1
+            });
+            if (res.success) {
+                const products = (res.data || []).filter(p => p.id !== this.product.id).slice(0, 4);
+                if (products.length === 0) return;
+
+                container.innerHTML = `
+                    <div class="section-title"><h2>Related Products</h2></div>
+                    <div class="products-grid">
+                        ${products.map(p => HJKComponents.renderProductCard(p)).join('')}
+                    </div>`;
+            }
+        } catch (err) {
+            // Silently fail for related products
+        }
     }
 };
 
