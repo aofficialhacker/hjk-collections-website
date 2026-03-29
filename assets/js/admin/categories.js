@@ -140,10 +140,13 @@ const AdminCategories = {
                             <div class="form-help">Leave empty to auto-generate from name</div>
                         </div>
                         <div class="form-group">
-                            <label>Image URL *</label>
-                            <input type="url" id="catImage" required value="${category?.image || ''}" placeholder="https://example.com/image.jpg">
+                            <label>Category Image *</label>
+                            <input type="file" id="catImageFile" accept="image/jpeg,image/png,image/webp,image/gif" onchange="AdminCategories.handleImageUpload(this)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff">
+                            <input type="hidden" id="catImage" value="${category?.image || ''}">
                         </div>
-                        ${category?.image ? `<div class="mb-3"><img src="${category.image}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--radius-md)"></div>` : ''}
+                        <div class="mb-3" id="catImagePreview">
+                            ${category?.image ? `<div style="position:relative;display:inline-block"><img src="${category.image}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--radius-md)"><button type="button" onclick="AdminCategories.removeImage()" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer">&times;</button></div>` : ''}
+                        </div>
                         <div class="form-group">
                             <label>Description</label>
                             <textarea id="catDesc" rows="3" placeholder="Category description">${category?.description || ''}</textarea>
@@ -158,6 +161,35 @@ const AdminCategories = {
                     </form>
                 </div>
             </div>`;
+    },
+
+    async handleImageUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const preview = document.getElementById('catImagePreview');
+        preview.innerHTML = '<div style="width:120px;height:120px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--radius-md)"><i class="fa-solid fa-spinner fa-spin fa-lg"></i></div>';
+
+        try {
+            const res = await HJKAPI.admin.categories.uploadImage(formData);
+            if (res.success && res.data.url) {
+                document.getElementById('catImage').value = res.data.url;
+                preview.innerHTML = `<div style="position:relative;display:inline-block"><img src="${res.data.url}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--radius-md)"><button type="button" onclick="AdminCategories.removeImage()" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer">&times;</button></div>`;
+                AdminComponents.showToast('Image uploaded', 'success');
+            }
+        } catch (err) {
+            preview.innerHTML = '';
+            AdminComponents.showToast(err.message || 'Failed to upload image', 'error');
+        }
+        input.value = '';
+    },
+
+    removeImage() {
+        document.getElementById('catImage').value = '';
+        document.getElementById('catImagePreview').innerHTML = '';
     },
 
     async saveForm(e, id) {

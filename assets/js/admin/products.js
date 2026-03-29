@@ -71,9 +71,9 @@ const AdminProducts = {
                                         <td><img src="${p.image || ''}" class="table-img" alt="${p.name}"></td>
                                         <td><div style="font-weight:600">${p.name}</div><div style="font-size:0.75rem;color:var(--text-muted)">${p.id}</div></td>
                                         <td>${p.categoryName || '-'}</td>
-                                        <td>-</td>
+                                        <td>${p.variantCount || 0}</td>
                                         <td>${p.minPrice != null ? HJKUtils.formatPrice(p.minPrice) : '-'}</td>
-                                        <td><span class="badge" style="background:var(--text-muted);color:#fff;padding:4px 10px;border-radius:20px;font-size:0.75rem">-</span></td>
+                                        <td><span class="badge" style="background:${p.totalStock > 10 ? 'var(--success)' : p.totalStock > 0 ? '#e67e22' : 'var(--danger)'};color:#fff;padding:4px 10px;border-radius:20px;font-size:0.75rem">${p.totalStock}</span></td>
                                         <td>
                                             <label class="toggle-switch">
                                                 <input type="checkbox" ${p.isActive ? 'checked' : ''} onchange="AdminProducts.toggleStatus('${p.id}')">

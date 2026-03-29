@@ -126,9 +126,9 @@ const HJKProductDetail = {
                 <div class="color-swatches mt-2">
                     ${p.variants.map(variant => `
                         <button class="color-swatch ${variant.id === v.id ? 'active' : ''}"
-                            style="background:${variant.colorHex}"
+                            style="background:${variant.colorHex};box-shadow:inset 0 0 0 2px rgba(0,0,0,0.3)"
                             data-color="${variant.color}"
-                            onclick="HJKProductDetail.selectVariant('${variant.id}')">
+                            onclick="HJKProductDetail.selectVariant(${variant.id})">
                         </button>
                     `).join('')}
                 </div>
@@ -188,7 +188,7 @@ const HJKProductDetail = {
     },
 
     async selectVariant(variantId) {
-        this.selectedVariant = this.product.variants.find(v => v.id === variantId);
+        this.selectedVariant = this.product.variants.find(v => v.id == variantId);
         this.selectedSize = this.selectedVariant.sizes[0];
         this.quantity = 1;
         this.renderGallery();

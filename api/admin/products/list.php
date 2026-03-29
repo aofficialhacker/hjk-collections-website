@@ -54,7 +54,12 @@ $sql = "SELECT p.*, c.name as category_name,
          WHERE pv.product_id = p.id ORDER BY pv.sort_order ASC, vi.sort_order ASC LIMIT 1) as image,
         (SELECT MIN(vs.selling_price) FROM hjk_variant_sizes vs
          INNER JOIN hjk_product_variants pv2 ON vs.variant_id = pv2.id
-         WHERE pv2.product_id = p.id) as min_price
+         WHERE pv2.product_id = p.id) as min_price,
+        (SELECT COUNT(*) FROM hjk_product_variants pv3
+         WHERE pv3.product_id = p.id) as variant_count,
+        (SELECT COALESCE(SUM(vs2.stock), 0) FROM hjk_variant_sizes vs2
+         INNER JOIN hjk_product_variants pv4 ON vs2.variant_id = pv4.id
+         WHERE pv4.product_id = p.id) as total_stock
         FROM hjk_products p
         LEFT JOIN hjk_categories c ON p.category_id = c.id
         $whereClause
@@ -80,6 +85,8 @@ $products = array_map(function($p) {
         'categoryName' => $p['category_name'] ?? '',
         'image' => $p['image'] ?? '',
         'minPrice' => $p['min_price'] !== null ? (float)$p['min_price'] : null,
+        'variantCount' => (int)($p['variant_count'] ?? 0),
+        'totalStock' => (int)($p['total_stock'] ?? 0),
         'isActive' => (bool)($p['is_active'] ?? false),
         'isFeatured' => (bool)($p['is_featured'] ?? false),
         'createdAt' => $p['created_at'] ?? '',

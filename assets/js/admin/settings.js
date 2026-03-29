@@ -156,7 +156,14 @@ const AdminSettings = {
                     <form class="admin-form" onsubmit="AdminSettings.saveBanner(event,'${id || ''}')">
                         <div class="form-group"><label>Title *</label><input type="text" id="banTitle" required value="${banner?.title || ''}"></div>
                         <div class="form-group"><label>Subtitle</label><input type="text" id="banSubtitle" value="${banner?.subtitle || ''}"></div>
-                        <div class="form-group"><label>Image URL *</label><input type="url" id="banImage" required value="${banner?.image || ''}"></div>
+                        <div class="form-group">
+                            <label>Banner Image *</label>
+                            <input type="file" id="banImageFile" accept="image/jpeg,image/png,image/webp,image/gif" onchange="AdminSettings.handleBannerImageUpload(this)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff">
+                            <input type="hidden" id="banImage" value="${banner?.image || ''}">
+                            <div id="banImagePreview" style="margin-top:8px">
+                                ${banner?.image ? `<div style="position:relative;display:inline-block"><img src="${banner.image}" style="width:100%;max-height:150px;object-fit:cover;border-radius:var(--radius-sm)"><button type="button" onclick="document.getElementById('banImage').value='';document.getElementById('banImagePreview').innerHTML=''" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer">&times;</button></div>` : ''}
+                            </div>
+                        </div>
                         <div class="form-group"><label>Button Text</label><input type="text" id="banBtnText" value="${banner?.buttonText || ''}"></div>
                         <div class="form-group"><label>Link</label><input type="text" id="banLink" value="${banner?.link || ''}"></div>
                         <div class="d-flex gap-3">
@@ -166,6 +173,30 @@ const AdminSettings = {
                     </form>
                 </div>
             </div>`;
+    },
+
+    async handleBannerImageUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const preview = document.getElementById('banImagePreview');
+        preview.innerHTML = '<div style="padding:20px;text-align:center;border:1px solid var(--border);border-radius:var(--radius-sm)"><i class="fa-solid fa-spinner fa-spin fa-lg"></i></div>';
+
+        try {
+            const res = await HJKAPI.admin.banners.uploadImage(formData);
+            if (res.success && res.data.url) {
+                document.getElementById('banImage').value = res.data.url;
+                preview.innerHTML = `<div style="position:relative;display:inline-block"><img src="${res.data.url}" style="width:100%;max-height:150px;object-fit:cover;border-radius:var(--radius-sm)"><button type="button" onclick="document.getElementById('banImage').value='';document.getElementById('banImagePreview').innerHTML=''" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer">&times;</button></div>`;
+                AdminComponents.showToast('Image uploaded', 'success');
+            }
+        } catch (err) {
+            preview.innerHTML = '';
+            AdminComponents.showToast(err.message || 'Failed to upload image', 'error');
+        }
+        input.value = '';
     },
 
     async saveBanner(e, id) {
