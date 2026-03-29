@@ -36,16 +36,9 @@ const HJKApp = {
 
     async loadSettings() {
         try {
-            // Cache settings in sessionStorage for performance
-            const cached = sessionStorage.getItem('hjk_settings_cache');
-            if (cached) {
-                this._settings = JSON.parse(cached);
-                return;
-            }
             const res = await HJKAPI.settings.get();
             if (res.success) {
                 this._settings = res.data;
-                sessionStorage.setItem('hjk_settings_cache', JSON.stringify(res.data));
             }
         } catch {
             this._settings = null;
@@ -54,15 +47,9 @@ const HJKApp = {
 
     async loadCategories() {
         try {
-            const cached = sessionStorage.getItem('hjk_categories_cache');
-            if (cached) {
-                this._categories = JSON.parse(cached);
-                return;
-            }
             const res = await HJKAPI.categories.list();
             if (res.success) {
                 this._categories = res.data;
-                sessionStorage.setItem('hjk_categories_cache', JSON.stringify(res.data));
             }
         } catch {
             this._categories = [];

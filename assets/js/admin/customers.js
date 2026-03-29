@@ -101,11 +101,10 @@ const AdminCustomers = {
         modal.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center"><div style="background:#fff;border-radius:var(--radius-lg);padding:30px"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>';
 
         try {
-            // Fetch customer details from the list endpoint with search
-            const response = await HJKAPI.admin.customers.list({ search: '', perPage: 9999 });
+            const response = await HJKAPI.admin.customers.detail(id);
             if (!response.success) throw new Error(response.message);
 
-            const u = (response.data || []).find(c => c.id === id);
+            const u = response.data;
             if (!u) throw new Error('Customer not found');
 
             const orders = u.recentOrders || [];

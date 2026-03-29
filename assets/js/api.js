@@ -238,6 +238,7 @@ const HJKAPI = {
             save(data) { return HJKAPI.post('/admin/categories/save.php', data); },
             delete(id) { return HJKAPI.delete('/admin/categories/delete.php', { id }); },
             toggle(id) { return HJKAPI.put('/admin/categories/toggle.php', { id }); },
+            uploadImage(formData) { return HJKAPI.upload('/admin/categories/upload-image.php', formData); },
         },
         products: {
             list(params = {}) {
@@ -265,6 +266,7 @@ const HJKAPI = {
                 return HJKAPI.get('/admin/customers/list.php' + (q ? '?' + q : ''));
             },
             toggle(id) { return HJKAPI.put('/admin/customers/toggle.php', { id }); },
+            detail(id) { return HJKAPI.get('/admin/customers/detail.php?id=' + id); },
         },
         coupons: {
             list(params = {}) {
@@ -304,6 +306,7 @@ const HJKAPI = {
             save(data) { return HJKAPI.post('/admin/banners/save.php', data); },
             delete(id) { return HJKAPI.delete('/admin/banners/delete.php', { id }); },
             toggle(id) { return HJKAPI.put('/admin/banners/toggle.php', { id }); },
+            uploadImage(formData) { return HJKAPI.upload('/admin/banners/upload-image.php', formData); },
         },
         cms: {
             list() { return HJKAPI.get('/admin/cms/list.php'); },
