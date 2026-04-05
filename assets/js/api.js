@@ -180,6 +180,12 @@ const HJKAPI = {
         deliveryOptions() {
             return HJKAPI.get('/checkout/delivery-options.php');
         },
+        createRazorpayOrder(data) {
+            return HJKAPI.post('/checkout/create-razorpay-order.php', data);
+        },
+        verifyPayment(data) {
+            return HJKAPI.post('/checkout/verify-payment.php', data);
+        },
     },
 
     // Review endpoints

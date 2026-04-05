@@ -28,8 +28,15 @@ $where = ['p.is_active = 1'];
 $params = [];
 
 if (!empty($category)) {
-    $where[] = 'c.slug = ?';
-    $params[] = $category;
+    $categorySlugs = array_filter(array_map('trim', explode(',', $category)));
+    if (count($categorySlugs) === 1) {
+        $where[] = 'c.slug = ?';
+        $params[] = $categorySlugs[0];
+    } elseif (count($categorySlugs) > 1) {
+        $catPlaceholders = implode(',', array_fill(0, count($categorySlugs), '?'));
+        $where[] = "c.slug IN ($catPlaceholders)";
+        $params = array_merge($params, $categorySlugs);
+    }
 }
 
 if (!empty($search)) {

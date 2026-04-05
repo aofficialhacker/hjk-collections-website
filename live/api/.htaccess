@@ -1,0 +1,22 @@
+# Deny access to sensitive files
+<FilesMatch "\.(env|sql|md)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Deny access to config and middleware directories directly
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to config, middleware, helpers, seed directories
+    RewriteRule ^config/ - [F,L]
+    RewriteRule ^middleware/ - [F,L]
+    RewriteRule ^helpers/ - [F,L]
+    RewriteRule ^seed/schema\.sql$ - [F,L]
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# Set default charset
+AddDefaultCharset UTF-8

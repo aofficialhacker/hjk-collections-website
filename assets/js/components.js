@@ -1,4 +1,4 @@
-/* ============================================
+        /* ============================================
    HJKCollections - Shared UI Components
    ============================================ */
 
@@ -218,8 +218,8 @@ const HJKComponents = {
                             <h5 class="footer-title">Contact & Newsletter</h5>
                             <div class="footer-contact">
                                 <p><i class="fa-solid fa-location-dot me-2"></i>${settings.address || ''}</p>
-                                <p><i class="fa-solid fa-phone me-2"></i>${settings.contactPhone || ''}</p>
-                                <p><i class="fa-solid fa-envelope me-2"></i>${settings.contactEmail || ''}</p>
+                                <p><i class="fa-solid fa-phone me-2"></i>${settings.phone || ''}</p>
+                                <p><i class="fa-solid fa-envelope me-2"></i>${settings.email || ''}</p>
                             </div>
                             <div class="footer-newsletter mt-3">
                                 <p class="mb-2" style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Subscribe for updates & offers</p>
@@ -482,3 +482,4 @@ const HJKComponents = {
         if (loader) loader.remove();
     }
 };
+    

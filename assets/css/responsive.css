@@ -292,16 +292,22 @@
 
 /* Print styles */
 @media print {
+    #header,
+    #footer,
+    #announcement-bar,
     .navbar-custom,
     .footer-custom,
     .back-to-top,
     .toast-container,
     .breadcrumbs,
     .profile-sidebar,
-    button:not(.print-only) {
+    .confirmation-page .d-flex.gap-3.justify-content-center,
+    .confirmation-page .alert {
         display: none !important;
     }
     body { background: #fff; }
-    .container-custom { max-width: 100%; }
-    .content-card { box-shadow: none; border: 1px solid #ddd; }
+    .container-custom { max-width: 100%; padding: 0; }
+    .content-card, .card-custom { box-shadow: none; border: 1px solid #ddd; }
+    .confirmation-page { padding-top: 0; }
+    .confirmation-icon { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }

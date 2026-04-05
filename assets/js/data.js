@@ -1,4 +1,4 @@
-/* ============================================
+        /* ============================================
    HJKCollections - Seed Data & localStorage Init
    ============================================ */
 
@@ -58,7 +58,7 @@ const HJKData = {
             contactEmail: 'support@hjkcollections.com',
             contactPhone: '+91 98765 43210',
             address: '123 Business Park, Andheri East, Mumbai, Maharashtra 400069',
-            headerAnnouncement: 'Free shipping on orders above ₹1,500! | Use code WELCOME10 for 10% off',
+            headerAnnouncement: 'Best Deals 🔥 | Shop Now & Save',
             footerAbout: 'HJKCollections brings you the finest collection of bags crafted with premium materials. From everyday essentials to luxury travel companions, find the perfect bag for every occasion.',
             currency: 'INR',
             currencySymbol: '₹',
@@ -107,7 +107,7 @@ const HJKData = {
         const pages = [
             {
                 id: 'cms_001', slug: 'about', title: 'About Us',
-                content: '<h3>Our Story</h3><p>Founded in 2020, HJKCollections started with a simple vision — to provide premium quality bags that combine style, functionality, and durability. What began as a small workshop has grown into one of India\'s most trusted bag brands.</p><h3>Our Mission</h3><p>We believe that a great bag is more than just an accessory — it\'s a companion for life\'s journey. Every HJK bag is crafted with meticulous attention to detail, using the finest materials sourced from trusted suppliers.</p><h3>Why Choose Us</h3><ul><li>Premium quality materials</li><li>Handcrafted with precision</li><li>30-day easy returns</li><li>Free shipping on orders above ₹1,500</li><li>1-year warranty on all products</li></ul>',
+                content: '<h3>Our Story</h3><p>Founded in 2020, HJKCollections started with a simple vision — to provide premium quality bags that combine style, functionality, and durability. What began as a small workshop has grown into one of India\'s most trusted bag brands.</p><h3>Our Mission</h3><p>We believe that a great bag is more than just an accessory — it\'s a companion for life\'s journey. Every HJK bag is crafted with meticulous attention to detail, using the finest materials sourced from trusted suppliers.</p><h3>Why Choose Us</h3><ul><li>Premium quality materials</li><li>Handcrafted with precision</li><li>Fast & Reliable Delivery</li><li>Secure Payment & Trusted Checkout</li></ul>',
                 isActive: true, updatedAt: '2026-01-15T10:00:00Z'
             },
             {
@@ -963,3 +963,4 @@ const HJKData = {
 document.addEventListener('DOMContentLoaded', () => {
     HJKData.init();
 });
+          

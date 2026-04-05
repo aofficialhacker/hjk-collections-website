@@ -36,6 +36,11 @@ $result = [
     'contactEmail' => $settings['contact_email'] ?? '',
     'contactPhone' => $settings['contact_phone'] ?? '',
     'address' => $settings['address'] ?? '',
+    'phone' => $settings['phone'] ?? '',
+    'whatsapp' => $settings['whatsapp'] ?? '',
+    'map_embed_url' => $settings['map_embed_url'] ?? '',
+    'mapUrl' => $settings['mapUrl'] ?? '',
+    'email' => $settings['email'] ?? '',
     'headerAnnouncement' => $settings['header_announcement'] ?? '',
     'footerAbout' => $settings['footer_about'] ?? '',
     'currency' => $settings['currency'] ?? 'INR',
@@ -45,3 +50,4 @@ $result = [
 ];
 
 Response::success($result);
+    
