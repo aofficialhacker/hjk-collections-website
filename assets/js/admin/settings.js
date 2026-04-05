@@ -37,6 +37,13 @@ const AdminSettings = {
                                 <div class="col-md-6"><div class="form-group"><label><i class="fa-brands fa-youtube me-1"></i>YouTube</label><input type="url" id="socialYt" value="${settings.socialLinks?.youtube || ''}"></div></div>
                             </div>
 
+                            <h6 class="font-heading mb-3">Header Announcement</h6>
+                            <div class="form-group mb-4">
+                                <label>Announcement Bar Text</label>
+                                <input type="text" id="headerAnnouncement" value="${settings.headerAnnouncement || ''}" placeholder="e.g., Free shipping on orders above ₹1,500!">
+                                <small style="color:var(--text-muted);font-size:0.78rem">Displayed at the top of every page. Leave empty to hide.</small>
+                            </div>
+
                             <h6 class="font-heading mb-3">Google Maps</h6>
                             <div class="form-group">
                                 <label>Map Embed URL</label>
@@ -70,6 +77,7 @@ const AdminSettings = {
                     twitter: document.getElementById('socialTw').value.trim(),
                     youtube: document.getElementById('socialYt').value.trim()
                 },
+                headerAnnouncement: document.getElementById('headerAnnouncement').value.trim(),
                 mapUrl: document.getElementById('mapUrl').value.trim()
             };
 
