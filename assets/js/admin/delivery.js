@@ -94,7 +94,7 @@ const AdminDelivery = {
             try {
                 const response = await HJKAPI.admin.delivery.list();
                 if (response.success) {
-                    opt = (response.data || []).find(d => d.id === id) || null;
+                    opt = (response.data || []).find(d => String(d.id) === String(id)) || null;
                 }
             } catch (err) {
                 AdminComponents.showToast(err.message, 'error');

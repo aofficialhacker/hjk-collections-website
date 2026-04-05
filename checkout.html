@@ -28,6 +28,7 @@
 
     <footer id="footer"></footer>
 
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/api.js"></script>
     <script src="assets/js/utils.js"></script>
@@ -36,10 +37,14 @@
     <script src="assets/js/checkout.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            const bc = document.getElementById('breadcrumbContainer');
-            if (bc) bc.innerHTML = HJKComponents.renderBreadcrumbs([{label:'Cart',url:'cart.html'},{label:'Checkout'}]);
-        }, 100);
+        const checkReady = setInterval(() => {
+            if (HJKApp._ready) {
+                clearInterval(checkReady);
+                const bc = document.getElementById('breadcrumbContainer');
+                if (bc) bc.innerHTML = HJKComponents.renderBreadcrumbs([{label:'Cart',url:'cart.html'},{label:'Checkout'}]);
+                HJKCheckout.init();
+            }
+        }, 50);
     });
     </script>
 </body>

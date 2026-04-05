@@ -30,11 +30,14 @@
     <script src="../assets/js/profile.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            if (!HJKApp.isLoggedIn()) { window.location.href = '../login.html'; return; }
-            HJKProfile.renderSidebar('profile');
-            HJKProfile.initProfilePage();
-        }, 100);
+        const c = setInterval(() => {
+            if (HJKApp._ready) {
+                clearInterval(c);
+                if (!HJKApp.isLoggedIn()) { window.location.href = '../login.html'; return; }
+                HJKProfile.renderSidebar('profile');
+                HJKProfile.initProfilePage();
+            }
+        }, 50);
     });
     </script>
 </body>

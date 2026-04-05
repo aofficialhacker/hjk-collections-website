@@ -1,0 +1,14 @@
+# Allow serving uploaded files
+Options -Indexes
+
+# Only allow image files
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Block PHP execution in uploads
+<FilesMatch "\.php$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>

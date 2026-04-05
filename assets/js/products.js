@@ -65,7 +65,7 @@ const HJKProducts = {
             per_page: this.state.perPage,
         };
 
-        if (f.category.length > 0) params.category = f.category[0]; // API supports single category
+        if (f.category.length > 0) params.category = f.category.join(',');
         if (f.search) params.search = f.search;
         if (f.minPrice) params.min_price = f.minPrice;
         if (f.maxPrice) params.max_price = f.maxPrice;

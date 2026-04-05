@@ -239,82 +239,132 @@ const HJKCheckout = {
             </div>`;
     },
 
-    placeOrder() {
-        if (!this.selectedAddressId) { HJKComponents.showToast('Please select a shipping address', 'error'); return; }
-        this.showPaymentModal();
-    },
-
-    showPaymentModal() {
-        const cart = this.cartData;
-        let subtotal = (cart?.items || []).reduce((s, i) => s + i.currentPrice * i.quantity, 0);
-        let discount = 0;
-        if (this.coupon) {
-            discount = this.coupon.type === 'percentage'
-                ? Math.min(subtotal * this.coupon.value / 100, this.coupon.maxDiscount || Infinity)
-                : this.coupon.value;
+    async placeOrder() {
+        if (!this.selectedAddressId) {
+            HJKComponents.showToast('Please select a shipping address', 'error');
+            return;
         }
-        const shipping = this.getShippingCost(subtotal - discount);
-        const total = subtotal - discount + shipping;
 
-        const html = `
-        <div class="modal-overlay" id="paymentModal">
-            <div class="modal-content-custom payment-modal">
-                <div class="payment-header">
-                    <span style="font-weight:600">Razorpay</span>
-                    <button style="background:none;border:none;color:#fff;font-size:1.2rem" onclick="document.getElementById('paymentModal').remove()">&times;</button>
-                </div>
-                <div class="payment-body" id="paymentBody">
-                    <div class="payment-amount">${HJKUtils.formatPrice(total)}</div>
-                    <p class="text-center text-muted mb-3" style="font-size:0.85rem">Select payment method</p>
-                    <div class="payment-methods">
-                        <button class="payment-method-btn" onclick="HJKCheckout.processPayment()"><i class="fa-solid fa-mobile-screen-button text-info"></i> UPI (GPay, PhonePe, Paytm)</button>
-                        <button class="payment-method-btn" onclick="HJKCheckout.processPayment()"><i class="fa-solid fa-credit-card text-warning"></i> Credit / Debit Card</button>
-                        <button class="payment-method-btn" onclick="HJKCheckout.processPayment()"><i class="fa-solid fa-building-columns text-success"></i> Net Banking</button>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-        document.body.insertAdjacentHTML('beforeend', html);
-    },
+        // Disable button to prevent double clicks
+        const payBtn = document.querySelector('#orderSummary .btn-secondary-custom');
+        if (payBtn) {
+            payBtn.disabled = true;
+            payBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div> Processing...';
+        }
 
-    processPayment() {
-        const body = document.getElementById('paymentBody');
-        body.innerHTML = `
-            <div class="text-center py-5">
-                <div class="spinner mx-auto mb-3"></div>
-                <p style="font-weight:500">Processing payment...</p>
-                <p class="text-muted" style="font-size:0.82rem">Please do not close this window</p>
-            </div>`;
-
-        setTimeout(() => this.completeOrder(), 2000);
-    },
-
-    async completeOrder() {
         try {
-            const orderData = {
+            // Step 1: Create Razorpay order on server
+            const rzpRes = await HJKAPI.checkout.createRazorpayOrder({
                 addressId: this.selectedAddressId,
                 couponCode: this.coupon?.code || '',
-                paymentMethod: 'razorpay',
-                paymentId: 'pay_mock_' + Date.now().toString(36)
-            };
+            });
 
-            const res = await HJKAPI.orders.create(orderData);
-            if (!res.success) {
-                throw { message: res.message || 'Failed to create order' };
+            if (!rzpRes.success) {
+                throw { message: rzpRes.message || 'Failed to initiate payment' };
             }
 
-            // Clear coupon
+            const { orderId, amount, currency, keyId, prefill } = rzpRes.data;
+
+            // Step 2: Open Razorpay checkout
+            this.openRazorpayCheckout({ orderId, amount, currency, keyId, prefill });
+
+        } catch (err) {
+            HJKComponents.showToast(err.message || 'Failed to initiate payment. Please try again.', 'error');
+            if (payBtn) {
+                payBtn.disabled = false;
+                payBtn.innerHTML = '<i class="fa-solid fa-lock me-1"></i> Pay ' + payBtn.dataset.amount;
+            }
+        }
+    },
+
+    openRazorpayCheckout({ orderId, amount, currency, keyId, prefill }) {
+        const options = {
+            key: keyId,
+            amount: amount,
+            currency: currency,
+            name: 'HJK Collections',
+            description: 'Order Payment',
+            order_id: orderId,
+            prefill: {
+                name: prefill.name || '',
+                email: prefill.email || '',
+                contact: prefill.contact || '',
+            },
+            theme: {
+                color: '#1a1a2e',
+            },
+            handler: (response) => {
+                // Payment successful — verify on server
+                this.verifyAndCompleteOrder(response);
+            },
+            modal: {
+                ondismiss: () => {
+                    // User closed the Razorpay popup
+                    HJKComponents.showToast('Payment cancelled', 'error');
+                    this.resetPayButton();
+                },
+            },
+        };
+
+        const rzp = new Razorpay(options);
+
+        rzp.on('payment.failed', (response) => {
+            HJKComponents.showToast(
+                response.error?.description || 'Payment failed. Please try again.',
+                'error'
+            );
+            this.resetPayButton();
+        });
+
+        rzp.open();
+    },
+
+    async verifyAndCompleteOrder(razorpayResponse) {
+        try {
+            const res = await HJKAPI.checkout.verifyPayment({
+                razorpay_order_id: razorpayResponse.razorpay_order_id,
+                razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+                razorpay_signature: razorpayResponse.razorpay_signature,
+                addressId: this.selectedAddressId,
+                couponCode: this.coupon?.code || '',
+            });
+
+            if (!res.success) {
+                throw { message: res.message || 'Payment verification failed' };
+            }
+
+            // Clear coupon & cart count
             sessionStorage.removeItem('hjk_applied_coupon');
             HJKApp._cartCount = 0;
             HJKApp.updateCartBadge();
 
-            // Redirect
-            window.location.href = 'order-confirmation.html?orderId=' + res.data.id;
+            // Redirect to confirmation
+            window.location.href = 'order-confirmation.html?orderId=' + res.data.orderId;
+
         } catch (err) {
-            document.getElementById('paymentModal')?.remove();
-            HJKComponents.showToast(err.message || 'Failed to place order. Please try again.', 'error');
+            HJKComponents.showToast(
+                err.message || 'Payment verification failed. Please contact support.',
+                'error'
+            );
+            this.resetPayButton();
+        }
+    },
+
+    resetPayButton() {
+        const payBtn = document.querySelector('#orderSummary .btn-secondary-custom');
+        if (payBtn) {
+            payBtn.disabled = false;
+            const cart = this.cartData;
+            let subtotal = (cart?.items || []).reduce((s, i) => s + i.currentPrice * i.quantity, 0);
+            let discount = 0;
+            if (this.coupon) {
+                discount = this.coupon.type === 'percentage'
+                    ? Math.min(subtotal * this.coupon.value / 100, this.coupon.maxDiscount || Infinity)
+                    : this.coupon.value;
+            }
+            const shipping = this.getShippingCost(subtotal - discount);
+            const total = subtotal - discount + shipping;
+            payBtn.innerHTML = `<i class="fa-solid fa-lock me-1"></i> Pay ${HJKUtils.formatPrice(total)}`;
         }
     }
 };
-
-document.addEventListener('DOMContentLoaded', () => { setTimeout(() => HJKCheckout.init(), 100); });
