@@ -51,8 +51,8 @@ const AdminComponents = {
 
         sidebar.innerHTML = `
             <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    HJK<span style="color:var(--secondary)">Collections</span>
+                <div class="sidebar-logo" style="display:flex;align-items:center;gap:10px">
+                    <img src="${base}../assets/logo/hjklogo.webp" alt="HJK Collections" class="brand-logo-admin" style="background:#fff;padding:4px;border-radius:6px">
                     <span>Admin Panel</span>
                 </div>
             </div>

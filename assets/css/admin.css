@@ -39,10 +39,15 @@
 .admin-sidebar .sidebar-logo span {
     color: #fff;
     font-size: 0.75rem;
-    display: block;
     font-family: var(--font-body);
     font-weight: 400;
     opacity: 0.7;
+}
+
+.admin-sidebar .sidebar-logo img.brand-logo-admin {
+    height: 44px;
+    width: auto;
+    object-fit: contain;
 }
 
 .admin-sidebar .sidebar-nav {

@@ -1,5 +1,6 @@
-        /* ============================================
+/* ============================================
    HJKCollections - Product Listing Page Logic
+   (ONLY SALES CATEGORY VERSION)
    ============================================ */
 
 const HJKProducts = {
@@ -12,7 +13,7 @@ const HJKProducts = {
         totalPages: 0,
         viewMode: 'grid',
         filters: {
-            category: [],
+            category: ['sales'], // ✅ fixed
             search: '',
             sort: 'newest',
             minPrice: '',
@@ -24,21 +25,18 @@ const HJKProducts = {
 
     async initProductsPage() {
         this.state.categories = HJKApp.getCategories() || [];
-        this.readUrlParams();
         this.renderFilterSidebar();
         this.bindEvents();
         await this.fetchProducts();
     },
 
     readUrlParams() {
-        const category = HJKUtils.getUrlParam('category');
         const search = HJKUtils.getUrlParam('search');
         const sort = HJKUtils.getUrlParam('sort');
         const minPrice = HJKUtils.getUrlParam('minPrice');
         const maxPrice = HJKUtils.getUrlParam('maxPrice');
         const page = HJKUtils.getUrlParam('page');
 
-        if (category) this.state.filters.category = category.split(',');
         if (search) this.state.filters.search = search;
         if (sort) this.state.filters.sort = sort;
         if (minPrice) this.state.filters.minPrice = minPrice;
@@ -49,7 +47,7 @@ const HJKProducts = {
     updateUrlParams() {
         const f = this.state.filters;
         HJKUtils.setUrlParams({
-            category: f.category.length > 0 ? f.category.join(',') : null,
+            category: 'sales', // ✅ always sales
             search: f.search || null,
             sort: f.sort !== 'newest' ? f.sort : null,
             minPrice: f.minPrice || null,
@@ -60,18 +58,18 @@ const HJKProducts = {
 
     async fetchProducts() {
         const f = this.state.filters;
+
         const params = {
             page: this.state.currentPage,
             per_page: this.state.perPage,
+            category: 'sales' // ✅ FORCE SALES
         };
 
-        if (f.category.length > 0) params.category = f.category[0]; // API supports single category
         if (f.search) params.search = f.search;
         if (f.minPrice) params.min_price = f.minPrice;
         if (f.maxPrice) params.max_price = f.maxPrice;
         if (f.rating > 0) params.rating = f.rating;
 
-        // Map sort values
         const sortMap = {
             'newest': 'newest',
             'price_asc': 'price_low',
@@ -82,7 +80,9 @@ const HJKProducts = {
         params.sort = sortMap[f.sort] || 'newest';
 
         const container = document.getElementById('productsGrid');
-        if (container) container.innerHTML = '<div class="text-center py-5"><div class="spinner"></div></div>';
+        if (container) {
+            container.innerHTML = '<div class="text-center py-5"><div class="spinner"></div></div>';
+        }
 
         try {
             const res = await HJKAPI.products.list(params);
@@ -116,19 +116,6 @@ const HJKProducts = {
             </div>
 
             <div class="filter-section">
-                <h5><i class="fa-solid fa-tags me-2"></i>Categories</h5>
-                <div class="filter-options">
-                    ${this.state.categories.map(cat => `
-                        <label class="filter-option">
-                            <input type="checkbox" name="category" value="${cat.slug}"
-                                ${this.state.filters.category.includes(cat.slug) ? 'checked' : ''}>
-                            <span>${cat.name}</span>
-                        </label>
-                    `).join('')}
-                </div>
-            </div>
-
-            <div class="filter-section">
                 <h5><i class="fa-solid fa-indian-rupee-sign me-2"></i>Price Range</h5>
                 <div class="price-range-inputs">
                     <input type="number" id="filterMinPrice" placeholder="Min"
@@ -137,7 +124,7 @@ const HJKProducts = {
                     <input type="number" id="filterMaxPrice" placeholder="Max"
                         value="${this.state.filters.maxPrice}" min="0">
                 </div>
-                <button class="btn-outline-custom btn-sm w-100 mt-2 justify-content-center"
+                <button class="btn-outline-custom btn-sm w-100 mt-2"
                     onclick="HJKProducts.applyPriceFilter()">
                     Apply Price
                 </button>
@@ -164,14 +151,14 @@ const HJKProducts = {
                 </div>
             </div>
 
-            <button class="btn-outline-custom w-100 justify-content-center" onclick="HJKProducts.clearAllFilters()">
-                <i class="fa-solid fa-filter-circle-xmark"></i> Clear All Filters
+            <button class="btn-outline-custom w-100"
+                onclick="HJKProducts.clearAllFilters()">
+                <i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters
             </button>
         `;
     },
 
     bindEvents() {
-        // Search input
         const searchInput = document.getElementById('filterSearch');
         if (searchInput) {
             searchInput.addEventListener('input', HJKUtils.debounce((e) => {
@@ -181,18 +168,6 @@ const HJKProducts = {
             }, 300));
         }
 
-        // Category checkboxes
-        document.querySelectorAll('input[name="category"]').forEach(cb => {
-            cb.addEventListener('change', () => {
-                this.state.filters.category = Array.from(
-                    document.querySelectorAll('input[name="category"]:checked')
-                ).map(el => el.value);
-                this.state.currentPage = 1;
-                this.fetchProducts();
-            });
-        });
-
-        // Rating radios
         document.querySelectorAll('input[name="rating"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 this.state.filters.rating = parseInt(e.target.value) || 0;
@@ -201,7 +176,6 @@ const HJKProducts = {
             });
         });
 
-        // Sort select
         const sortSelect = document.getElementById('sortSelect');
         if (sortSelect) {
             sortSelect.value = this.state.filters.sort;
@@ -212,7 +186,6 @@ const HJKProducts = {
             });
         }
 
-        // View mode toggles
         document.querySelectorAll('.view-toggle button').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.state.viewMode = btn.dataset.view;
@@ -221,15 +194,6 @@ const HJKProducts = {
                 this.updateGridView();
             });
         });
-
-        // Mobile filter toggle
-        const filterToggle = document.getElementById('filterToggleBtn');
-        if (filterToggle) {
-            filterToggle.addEventListener('click', () => {
-                const sidebar = document.getElementById('filterSidebar');
-                if (sidebar) sidebar.classList.toggle('show-mobile');
-            });
-        }
     },
 
     applyPriceFilter() {
@@ -241,7 +205,7 @@ const HJKProducts = {
 
     clearAllFilters() {
         this.state.filters = {
-            category: [],
+            category: ['sales'], // ✅ keep sales
             search: '',
             sort: 'newest',
             minPrice: '',
@@ -260,24 +224,14 @@ const HJKProducts = {
         if (!container) return;
 
         if (this.state.products.length === 0) {
-            container.innerHTML = HJKComponents.renderEmptyState(
-                'fa-bag-shopping',
-                'No Products Found',
-                'Try adjusting your filters or search query to find what you are looking for.',
-                'Clear Filters',
-                '#'
-            );
-            const emptyBtn = container.querySelector('.btn-primary-custom');
-            if (emptyBtn) {
-                emptyBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.clearAllFilters();
-                });
-            }
+            container.innerHTML = `<div class="text-center py-5">No Products Found</div>`;
             return;
         }
 
-        container.innerHTML = this.state.products.map(p => HJKComponents.renderProductCard(p)).join('');
+        container.innerHTML = this.state.products.map(p =>
+            HJKComponents.renderProductCard(p)
+        ).join('');
+
         this.updateGridView();
     },
 
@@ -303,6 +257,7 @@ const HJKProducts = {
         if (!el) return;
 
         const total = this.state.totalProducts;
+
         if (total === 0) {
             el.textContent = 'No products found';
             return;
@@ -310,6 +265,7 @@ const HJKProducts = {
 
         const start = (this.state.currentPage - 1) * this.state.perPage + 1;
         const end = Math.min(start + this.state.products.length - 1, total);
+
         el.textContent = `Showing ${start}-${end} of ${total} products`;
     },
 
@@ -323,23 +279,13 @@ const HJKProducts = {
         const breadcrumbContainer = document.getElementById('breadcrumbContainer');
         if (!breadcrumbContainer) return;
 
-        const crumbs = [];
-        if (this.state.filters.category.length === 1) {
-            const cat = this.state.categories.find(c => c.slug === this.state.filters.category[0]);
-            crumbs.push({ label: cat ? cat.name : 'Shop' });
-        } else if (this.state.filters.search) {
-            crumbs.push({ label: `Search: "${this.state.filters.search}"` });
-        } else {
-            crumbs.push({ label: 'Shop' });
-        }
-
-        breadcrumbContainer.innerHTML = HJKComponents.renderBreadcrumbs(crumbs);
+        breadcrumbContainer.innerHTML =
+            HJKComponents.renderBreadcrumbs([{ label: 'Sale' }]);
     }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('productsGrid')) {
-        // Wait for HJKApp.init() to complete
         const checkReady = setInterval(() => {
             if (HJKApp._ready) {
                 clearInterval(checkReady);
@@ -348,4 +294,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 50);
     }
 });
-    

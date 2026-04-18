@@ -11,8 +11,28 @@
     border-bottom: 1px solid var(--border);
 }
 
+#main-navbar > .container-custom {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+@media (min-width: 992px) {
+    #main-navbar .navbar-collapse {
+        display: flex !important;
+        flex-basis: auto;
+        align-items: center;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+    }
+}
+
 .navbar-brand {
-    padding: 16px 0;
+    padding: 8px 0;
+    margin-right: 24px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
 }
 
 .brand-text {
@@ -28,6 +48,49 @@
 
 .brand-collections {
     color: var(--primary);
+}
+
+.brand-logo {
+    height: 82px;
+    width: auto;
+    display: block;
+    object-fit: contain;
+    transition: transform 0.25s ease;
+}
+
+.navbar-brand:hover .brand-logo {
+    transform: scale(1.05);
+}
+
+.brand-logo-footer {
+    height: 100px;
+    background: #fff;
+    padding: 10px 14px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.brand-logo-auth {
+    height: 110px;
+    width: auto;
+    margin: 0 auto;
+    display: block;
+}
+
+.brand-logo-admin {
+    height: 48px;
+    width: auto;
+    object-fit: contain;
+}
+
+@media (max-width: 991px) {
+    .brand-logo { height: 68px; }
+}
+
+@media (max-width: 576px) {
+    .brand-logo { height: 46px; }
+    .brand-logo-footer { height: 80px; }
+    .brand-logo-auth { height: 88px; }
 }
 
 .nav-link {
