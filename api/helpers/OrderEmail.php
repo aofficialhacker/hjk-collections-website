@@ -172,6 +172,8 @@ class OrderEmail
 
     private static function wrapInLayout($content)
     {
+        $appUrl = rtrim(Env::get('APP_URL', ''), '/');
+        $logoUrl = $appUrl . '/assets/logo/hjklogo.webp';
         return '<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -180,8 +182,8 @@ class OrderEmail
         <tr><td align="center">
             <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                 <!-- Header -->
-                <tr><td style="background:#1A1A2E;padding:25px;text-align:center;">
-                    <h1 style="margin:0;color:#C9A96E;font-family:Georgia,serif;font-size:24px;letter-spacing:1px;">HJK<span style="color:#fff;">Collections</span></h1>
+                <tr><td style="background:#1A1A2E;padding:20px;text-align:center;">
+                    <img src="' . $logoUrl . '" alt="HJK Collections" style="height:60px;width:auto;display:inline-block;background:#fff;padding:6px 10px;border-radius:8px;">
                 </td></tr>
                 <!-- Body -->
                 <tr><td style="padding:30px;">' . $content . '</td></tr>

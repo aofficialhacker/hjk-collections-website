@@ -100,24 +100,37 @@ const HJKAuth = {
             return;
         }
 
+        const btn = e.target.querySelector('button[type="submit"]');
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...'; }
+
         try {
             const res = await HJKAPI.auth.forgotPassword(email);
-            document.getElementById('forgotForm').style.display = 'none';
-            document.getElementById('resetForm').style.display = 'block';
-            HJKComponents.showToast(res.message || 'Password reset link sent!', 'success');
+            HJKComponents.showToast(res.message || 'If this email is registered, a reset link has been sent.', 'success');
+            const forgotForm = document.querySelector('#forgotForm form');
+            if (forgotForm) forgotForm.reset();
         } catch (err) {
             HJKComponents.showToast(err.message || 'Failed to send reset link', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
         }
     },
 
     async handleResetPassword(e) {
         e.preventDefault();
-        const email = document.getElementById('forgotEmail').value.trim();
+        const params = new URLSearchParams(window.location.search);
+        const email = params.get('email');
+        const token = params.get('token');
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmNewPassword').value;
 
-        if (newPassword.length < 8) {
-            HJKComponents.showToast('Password must be at least 8 characters', 'error');
+        if (!email || !token) {
+            HJKComponents.showToast('Invalid reset link. Please request a new one.', 'error');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            HJKComponents.showToast('Password must be at least 6 characters', 'error');
             return;
         }
 
@@ -126,14 +139,19 @@ const HJKAuth = {
             return;
         }
 
+        const btn = e.target.querySelector('button[type="submit"]');
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resetting...'; }
+
         try {
-            const res = await HJKAPI.auth.resetPassword(email, newPassword);
+            const res = await HJKAPI.auth.resetPassword(email, newPassword, token);
             HJKComponents.showToast(res.message || 'Password reset successfully!', 'success');
             setTimeout(() => {
                 window.location.href = 'login.html';
             }, 1000);
         } catch (err) {
             HJKComponents.showToast(err.message || 'Password reset failed', 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
         }
     },
 

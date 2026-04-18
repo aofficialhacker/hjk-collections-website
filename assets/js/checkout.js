@@ -1,4 +1,4 @@
-/* ============================================
+                /* ============================================
    HJKCollections - Checkout Page Logic
    ============================================ */
 
@@ -184,8 +184,11 @@ const HJKCheckout = {
     getShippingCost(subtotal) {
         // Free shipping above ₹1,500, otherwise ₹99 flat
         const settings = HJKApp.getSettings();
-        const freeAbove = settings?.freeShippingAbove || 1500;
-        const flatRate = settings?.shippingFlatRate || 99;
+        const freeAbove = settings?.freeShippingAbove || 15000;
+        //const flatRate = 80;
+        // const freeAbove = settings?.freeShippingAbove || 1500;
+        const flatRate = settings?.shippingFlatRate || 80;
+        // return subtotal >= freeAbove ? 0 : flatRate;
         return subtotal >= freeAbove ? 0 : flatRate;
     },
 
@@ -368,3 +371,4 @@ const HJKCheckout = {
         }
     }
 };
+        

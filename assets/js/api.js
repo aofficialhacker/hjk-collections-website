@@ -80,8 +80,8 @@ const HJKAPI = {
         forgotPassword(email) {
             return HJKAPI.post('/auth/forgot-password.php', { email });
         },
-        resetPassword(email, password) {
-            return HJKAPI.post('/auth/reset-password.php', { email, password });
+        resetPassword(email, password, token) {
+            return HJKAPI.post('/auth/reset-password.php', { email, password, token });
         },
     },
 
@@ -228,6 +228,12 @@ const HJKAPI = {
     newsletter: {
         subscribe(email) {
             return HJKAPI.post('/newsletter/subscribe.php', { email });
+        },
+    },
+
+    contact: {
+        send(data) {
+            return HJKAPI.post('/contact/send.php', data);
         },
     },
 

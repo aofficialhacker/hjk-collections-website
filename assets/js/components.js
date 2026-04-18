@@ -12,9 +12,7 @@ const HJKComponents = {
         <nav class="navbar navbar-expand-lg sticky-top" id="main-navbar">
             <div class="container-custom">
                 <a class="navbar-brand" href="/index.html">
-                    <span class="brand-text">
-                        <span class="brand-hjk">HJK</span><span class="brand-collections">Collections</span>
-                    </span>
+                    <img src="/assets/logo/hjklogo.webp" alt="HJK Collections" class="brand-logo">
                 </a>
 
                 <div class="header-actions-mobile d-lg-none">
@@ -186,7 +184,7 @@ const HJKComponents = {
                     <div class="row g-4">
                         <div class="col-lg-4 col-md-6">
                             <div class="footer-brand">
-                                <h3 class="font-heading mb-3"><span style="color: var(--secondary)">HJK</span>Collections</h3>
+                                <img src="/assets/logo/hjklogo.webp" alt="HJK Collections" class="brand-logo brand-logo-footer mb-3">
                                 <p>${settings.footerAbout || ''}</p>
                                 <div class="footer-social">
                                     ${settings.socialLinks?.facebook ? `<a href="${settings.socialLinks.facebook}" target="_blank"><i class="fa-brands fa-facebook-f"></i></a>` : ''}

@@ -1,4 +1,4 @@
-        <!DOCTYPE html>
+                        <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -35,6 +35,9 @@
 
     <!-- New Arrivals -->
     <section class="section-padding" id="newArrivals"></section>
+    
+    <!-- Sales Offer Section -->
+    <section class="section-padding" style="background:#fff5f5" id="salesSection"></section>
 
     <!-- Testimonials -->
     <section class="section-padding" style="background:var(--accent-light)" id="testimonials"></section>
@@ -66,7 +69,8 @@
                 renderHeroCarousel(),
                 renderCategorySection(),
                 renderFeaturedProducts(),
-                renderNewArrivals()
+                renderNewArrivals(),
+                renderSalesProducts()   // ✅ ADD THIS LINE
             ]);
         }
 
@@ -233,37 +237,36 @@
         /* =============================================
            4. FEATURED PRODUCTS
            ============================================= */
-        async function renderFeaturedProducts() {
-            let featured = [];
-            try {
-                const res = await HJKAPI.products.featured(8);
-                if (res.success) {
-                    featured = res.data || [];
+           async function renderFeaturedProducts() {
+                let featured = [];
+                try {
+                    const res = await HJKAPI.products.featured(8);
+                    if (res.success) {
+                        featured = (res.data || []).filter(p => {
+                            const cat = (p.categorySlug || p.categoryName || '').toString().toLowerCase();
+                            return !cat.includes('sales'); // ❌ remove sales
+                        });
+                    }
+                } catch (err) {
+                    return;
                 }
-            } catch (err) {
-                return;
+            
+                if (featured.length === 0) return;
+            
+                const html = `
+                    <div class="container-custom">
+                        <div class="section-title">
+                            <h2>Featured Products</h2>
+                            <p>Handpicked for you</p>
+                        </div>
+                        <div class="products-grid">
+                            ${featured.map(product => HJKComponents.renderProductCard(product)).join('')}
+                        </div>
+                    </div>`;
+            
+                document.getElementById('featuredSection').innerHTML = html;
             }
-
-            if (featured.length === 0) return;
-
-            const html = `
-                <div class="container-custom">
-                    <div class="section-title">
-                        <h2>Featured Products</h2>
-                        <p>Handpicked for you</p>
-                    </div>
-                    <div class="products-grid">
-                        ${featured.map(function (product) {
-                            return HJKComponents.renderProductCard(product);
-                        }).join('')}
-                    </div>
-                    <div class="text-center mt-5">
-                        <a href="products.html" class="btn-outline-custom">View All Products <i class="fa-solid fa-arrow-right"></i></a>
-                    </div>
-                </div>`;
-
-            document.getElementById('featuredSection').innerHTML = html;
-        }
+        
 
         /* =============================================
            5. PROMOTIONAL BANNER
@@ -294,14 +297,18 @@
             try {
                 const res = await HJKAPI.products.list({ sort: 'newest', per_page: 4 });
                 if (res.success) {
-                    newArrivals = res.data || [];
+                    newArrivals = (res.data || []).filter(p => {
+                        const cat = (p.categorySlug || p.categoryName || '').toString().toLowerCase();
+                        
+                        return !cat.includes('sales'); // ❌ remove sales
+                    });
                 }
             } catch (err) {
                 return;
             }
-
+        
             if (newArrivals.length === 0) return;
-
+        
             const html = `
                 <div class="container-custom">
                     <div class="section-title">
@@ -309,16 +316,63 @@
                         <p>The latest additions to our collection</p>
                     </div>
                     <div class="products-grid">
-                        ${newArrivals.map(function (product) {
-                            return HJKComponents.renderProductCard(product);
-                        }).join('')}
-                    </div>
-                    <div class="text-center mt-5">
-                        <a href="products.html?sort=newest" class="btn-outline-custom">See All New Arrivals <i class="fa-solid fa-arrow-right"></i></a>
+                        ${newArrivals.map(product => HJKComponents.renderProductCard(product)).join('')}
                     </div>
                 </div>`;
-
+        
             document.getElementById('newArrivals').innerHTML = html;
+        }
+        
+        /* =============================================
+           SALES OFFER PRODUCTS
+        ============================================= */
+        async function renderSalesProducts() {
+            let products = [];
+        
+            try {
+                // OPTION 1: If you have SALE category slug
+                const res = await HJKAPI.products.list({ category: 'Sales', per_page: 8 });
+        
+                // OPTION 2 (Better): Filter by discount
+                // const res = await HJKAPI.products.list({ per_page: 20 });
+        
+                if (res.success) {
+                    products = res.data || [];
+        
+                    // If using discount filter:
+                    // products = products.filter(p => {
+                    //     const price = HJKUtils.getLowestPrice(p);
+                    //     return price.sellingPrice < price.normalPrice;
+                    // }).slice(0, 8);
+                }
+        
+            } catch (err) {
+                console.error('Sales products error:', err);
+                return;
+            }
+        
+            if (products.length === 0) return;
+        
+            const html = `
+                <div class="container-custom">
+                    <div class="section-title">
+                        <h2 style="color:#e53935;">🔥 Hot Deals & Offers</h2>
+                        <p>Grab the best discounts before they're gone</p>
+                    </div>
+        
+                    <div class="products-grid">
+                        ${products.map(product => HJKComponents.renderProductCard(product)).join('')}
+                    </div>
+        
+                    <div class="text-center mt-5">
+                        <a href="products_sales.html?category=sales" class="btn-primary-custom">
+                            View All Offers <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            `;
+        
+            document.getElementById('salesSection').innerHTML = html;
         }
 
         /* =============================================
@@ -378,4 +432,4 @@
     </script>
 </body>
 </html>
-    
+            
