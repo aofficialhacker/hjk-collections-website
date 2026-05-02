@@ -6,6 +6,8 @@ require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../helpers/Response.php';
 require_once __DIR__ . '/../../middleware/AdminAuth.php';
 require_once __DIR__ . '/../../middleware/Validator.php';
+require_once __DIR__ . '/../../helpers/Mailer.php';
+require_once __DIR__ . '/../../helpers/OrderEmail.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
     Response::error('Method not allowed', 405);
@@ -66,6 +68,16 @@ try {
     $db->commit();
 
     AdminAuth::log($db, 'update_order_status', "Order #{$order['order_number']} status changed to $status", 'order', $id);
+
+    // Send status update email to customer (non-blocking)
+    if ($status !== $order['order_status']) {
+        try {
+            OrderEmail::sendStatusUpdate($db, $id, $status, $note, $trackingId);
+        } catch (Exception $emailErr) {
+            error_log('Status email failed: ' . $emailErr->getMessage());
+        }
+    }
+
     Response::success(null, 'Order status updated successfully');
 } catch (Exception $e) {
     $db->rollBack();

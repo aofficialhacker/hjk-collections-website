@@ -39,6 +39,19 @@ $expectedSignature = hash_hmac(
 );
 
 if (!hash_equals($expectedSignature, $input['razorpay_signature'])) {
+    // Log the failure for forensics (non-blocking)
+    try {
+        $db = Database::getInstance();
+        $logStmt = $db->prepare('UPDATE hjk_payment_logs SET status = ?, razorpay_payment_id = ?, razorpay_signature = ?, error_message = ?, response_payload = ?, updated_at = NOW() WHERE razorpay_order_id = ?');
+        $logStmt->execute([
+            'signature_failed',
+            $input['razorpay_payment_id'],
+            $input['razorpay_signature'],
+            'Signature mismatch on verify',
+            json_encode($input),
+            $input['razorpay_order_id'],
+        ]);
+    } catch (Exception $e) { error_log('Payment log signature_failed: ' . $e->getMessage()); }
     Response::error('Payment verification failed. Signature mismatch.', 400);
 }
 
@@ -214,6 +227,19 @@ try {
 
     $db->commit();
 
+    // Mark the payment log as order_created (non-blocking)
+    try {
+        $logStmt = $db->prepare('UPDATE hjk_payment_logs SET status = ?, razorpay_payment_id = ?, razorpay_signature = ?, order_id = ?, response_payload = ?, error_message = NULL, updated_at = NOW() WHERE razorpay_order_id = ?');
+        $logStmt->execute([
+            'order_created',
+            $input['razorpay_payment_id'],
+            $input['razorpay_signature'],
+            $orderId,
+            json_encode($input),
+            $input['razorpay_order_id'],
+        ]);
+    } catch (Exception $logErr) { error_log('Payment log order_created: ' . $logErr->getMessage()); }
+
     // Send confirmation emails (non-blocking — don't fail the order if email fails)
     try {
         OrderEmail::sendConfirmation($db, $orderId);
@@ -229,5 +255,42 @@ try {
 
 } catch (Exception $e) {
     $db->rollBack();
-    Response::error('Failed to place order: ' . $e->getMessage(), 500);
+
+    // CRITICAL: Razorpay captured the payment but our order insert failed.
+    // Log it and alert admin for manual reconciliation. (non-blocking)
+    try {
+        $logStmt = $db->prepare('UPDATE hjk_payment_logs SET status = ?, razorpay_payment_id = ?, razorpay_signature = ?, error_message = ?, response_payload = ?, updated_at = NOW() WHERE razorpay_order_id = ?');
+        $logStmt->execute([
+            'order_failed',
+            $input['razorpay_payment_id'],
+            $input['razorpay_signature'],
+            $e->getMessage(),
+            json_encode($input),
+            $input['razorpay_order_id'],
+        ]);
+    } catch (Exception $logErr) { error_log('Payment log order_failed: ' . $logErr->getMessage()); }
+
+    try {
+        $adminEmail = Env::get('ADMIN_EMAIL');
+        if ($adminEmail) {
+            $appUrl = rtrim(Env::get('APP_URL', ''), '/');
+            $userStmt = $db->prepare('SELECT first_name, last_name, email, phone FROM hjk_users WHERE id = ?');
+            $userStmt->execute([$userId]);
+            $u = $userStmt->fetch() ?: [];
+            $alertHtml = '
+                <h2 style="color:#c5221f;margin:0 0 10px;">Payment captured, order NOT created</h2>
+                <p style="color:#333;">A Razorpay payment succeeded but the order insert failed. Manual reconciliation is required.</p>
+                <table cellpadding="6" style="margin-top:12px;font-size:14px;">
+                    <tr><td><strong>User</strong></td><td>' . htmlspecialchars(trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? ''))) . ' (' . htmlspecialchars($u['email'] ?? '') . ', ' . htmlspecialchars($u['phone'] ?? '') . ')</td></tr>
+                    <tr><td><strong>Razorpay Order ID</strong></td><td><code>' . htmlspecialchars($input['razorpay_order_id']) . '</code></td></tr>
+                    <tr><td><strong>Razorpay Payment ID</strong></td><td><code>' . htmlspecialchars($input['razorpay_payment_id']) . '</code></td></tr>
+                    <tr><td><strong>Amount</strong></td><td>&#8377;' . number_format($totalAmount, 2) . '</td></tr>
+                    <tr><td><strong>Error</strong></td><td>' . htmlspecialchars($e->getMessage()) . '</td></tr>
+                </table>
+                <p style="margin-top:16px;"><a href="' . $appUrl . '/admin/orders/payment-logs.html" style="background:#1A1A2E;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;">Open Payment Logs</a></p>';
+            (new Mailer())->send($adminEmail, 'CRITICAL: Payment succeeded but order failed', $alertHtml);
+        }
+    } catch (Exception $mailErr) { error_log('Payment failure admin alert: ' . $mailErr->getMessage()); }
+
+    Response::error('Payment was received but we could not place your order. Our team has been notified and will contact you shortly. Reference: ' . $input['razorpay_payment_id'], 500);
 }

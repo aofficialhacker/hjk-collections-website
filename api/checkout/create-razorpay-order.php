@@ -158,6 +158,52 @@ if ($httpCode !== 200 || empty($rzpOrder['id'])) {
     Response::error($errorMsg, 500);
 }
 
+// Log the payment intent for reconciliation (non-blocking)
+try {
+    $cartSnapshot = array_map(function ($it) {
+        return [
+            'product_id' => (int)$it['product_id'],
+            'product_name' => $it['product_name'],
+            'variant_id' => (int)$it['variant_id'],
+            'color' => $it['color'],
+            'size' => $it['size'],
+            'quantity' => (int)$it['quantity'],
+            'selling_price' => (float)$it['selling_price'],
+            'image' => $it['image'],
+        ];
+    }, $cartItems);
+    $requestPayload = json_encode([
+        'cart' => $cartSnapshot,
+        'address_id' => (int)$input['addressId'],
+        'address' => [
+            'full_name' => $address['full_name'],
+            'phone' => $address['phone'],
+            'address_line1' => $address['address_line1'],
+            'address_line2' => $address['address_line2'],
+            'city' => $address['city'],
+            'state' => $address['state'],
+            'pincode' => $address['pincode'],
+        ],
+        'subtotal' => $subtotal,
+        'discount' => $discount,
+        'coupon_code' => $couponCode,
+        'shipping_cost' => $shippingCost,
+        'total_amount' => $totalAmount,
+    ]);
+    $logStmt = $db->prepare('INSERT INTO hjk_payment_logs (user_id, razorpay_order_id, amount, currency, status, request_payload, response_payload) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE request_payload = VALUES(request_payload), response_payload = VALUES(response_payload), updated_at = NOW()');
+    $logStmt->execute([
+        $userId,
+        $rzpOrder['id'],
+        $totalAmount,
+        'INR',
+        'created',
+        $requestPayload,
+        $response,
+    ]);
+} catch (Exception $logErr) {
+    error_log('Payment log create failed: ' . $logErr->getMessage());
+}
+
 // Get user info for prefill
 $userStmt = $db->prepare('SELECT first_name, last_name, email, phone FROM hjk_users WHERE id = ?');
 $userStmt->execute([$userId]);

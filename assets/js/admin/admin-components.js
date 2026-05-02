@@ -32,6 +32,7 @@ const AdminComponents = {
 
             { section: 'Sales' },
             { key: 'orders', label: 'Orders', icon: 'fa-shopping-cart', url: base + 'orders/index.html', badgeId: 'badge-orders' },
+            { key: 'payment-logs', label: 'Payment Logs', icon: 'fa-receipt', url: base + 'orders/payment-logs.html', badgeId: 'badge-payment-logs' },
             { key: 'delivery', label: 'Delivery Options', icon: 'fa-truck', url: base + 'delivery/index.html' },
             { key: 'returns', label: 'Returns', icon: 'fa-rotate-left', url: base + 'returns/index.html', badgeId: 'badge-returns' },
             { key: 'coupons', label: 'Coupons', icon: 'fa-ticket', url: base + 'coupons/index.html' },

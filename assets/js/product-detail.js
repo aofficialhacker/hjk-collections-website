@@ -123,14 +123,23 @@ const HJKProductDetail = {
             <!-- Color Variants -->
             <div class="mb-3">
                 <span class="product-option-label">Color: <strong>${v.color}</strong></span>
-                <div class="color-swatches mt-2">
-                    ${p.variants.map(variant => `
-                        <button class="color-swatch ${variant.id === v.id ? 'active' : ''}"
-                            style="background:${variant.colorHex};box-shadow:inset 0 0 0 2px rgba(0,0,0,0.3)"
-                            data-color="${variant.color}"
+                <div class="variant-tiles mt-2">
+                    ${p.variants.map(variant => {
+                        const minPrice = variant.sizes && variant.sizes.length
+                            ? Math.min(...variant.sizes.map(sz => sz.sellingPrice))
+                            : null;
+                        const swatch = (variant.images && variant.images[0]) || '';
+                        return `
+                        <button type="button" class="variant-tile ${variant.id === v.id ? 'active' : ''}"
+                            title="${variant.color}"
                             onclick="HJKProductDetail.selectVariant(${variant.id})">
-                        </button>
-                    `).join('')}
+                            ${swatch
+                                ? `<img src="${swatch}" alt="${variant.color}">`
+                                : `<span class="variant-tile-fallback" style="background:${variant.colorHex}"></span>`}
+                            <span class="variant-tile-name">${variant.color}</span>
+                            ${minPrice != null ? `<span class="variant-tile-price">${HJKUtils.formatPrice(minPrice)}</span>` : ''}
+                        </button>`;
+                    }).join('')}
                 </div>
             </div>
 

@@ -739,3 +739,50 @@
     .admin-content { padding: 16px; }
     .size-row { grid-template-columns: 1fr 1fr; }
 }
+
+/* Admin Modal */
+.admin-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+}
+.admin-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+.admin-modal-content {
+    position: relative;
+    margin: 5vh auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    width: 92%;
+    max-width: 600px;
+    overflow: hidden;
+}
+.admin-modal-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.admin-modal-header h5 { margin: 0; font-weight: 600; }
+.admin-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+}
+.admin-modal-body { padding: 20px; }
+.admin-modal-body h6 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin: 0 0 6px;
+}
