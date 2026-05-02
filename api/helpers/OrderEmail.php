@@ -46,6 +46,114 @@ class OrderEmail
         }
     }
 
+    /**
+     * Send order status update to customer
+     */
+    public static function sendStatusUpdate($db, $orderId, $newStatus, $note = '', $trackingId = null)
+    {
+        try {
+            $stmt = $db->prepare('SELECT o.*, u.first_name, u.last_name, u.email AS user_email FROM hjk_orders o JOIN hjk_users u ON o.user_id = u.id WHERE o.id = ?');
+            $stmt->execute([$orderId]);
+            $order = $stmt->fetch();
+            if (!$order) return false;
+
+            $itemsStmt = $db->prepare('SELECT * FROM hjk_order_items WHERE order_id = ?');
+            $itemsStmt->execute([$orderId]);
+            $items = $itemsStmt->fetchAll();
+
+            $customerName = trim($order['first_name'] . ' ' . $order['last_name']);
+            $appUrl = rtrim(Env::get('APP_URL', 'https://hjkcollections.com'), '/');
+
+            $copy = self::statusCopy($newStatus);
+            $subject = $copy['subject'] . ' - ' . $order['order_number'];
+
+            $itemsHtml = '';
+            foreach ($items as $item) {
+                $itemsHtml .= '
+                <tr>
+                    <td style="padding:10px;border-bottom:1px solid #eee;">
+                        <strong>' . htmlspecialchars($item['product_name']) . '</strong><br>
+                        <span style="color:#888;font-size:13px;">' . htmlspecialchars($item['color']) . ' | ' . htmlspecialchars($item['size']) . ' x ' . $item['quantity'] . '</span>
+                    </td>
+                    <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">' . self::formatPrice($item['total_price']) . '</td>
+                </tr>';
+            }
+
+            $effectiveTrackingId = $trackingId ?: $order['tracking_id'];
+            $trackingHtml = '';
+            if ($effectiveTrackingId && in_array($newStatus, ['shipped', 'out_for_delivery'], true)) {
+                $trackingUrl = $appUrl . '/order-tracking.html?orderNumber=' . urlencode($order['order_number']);
+                $trackingHtml = '
+                <div style="background:#fff8ec;border:1px solid #f1d9a8;border-radius:8px;padding:16px;margin-bottom:20px;">
+                    <p style="margin:0 0 6px;color:#8a6d3b;font-size:13px;font-weight:600;">Tracking ID</p>
+                    <p style="margin:0 0 10px;font-family:monospace;font-size:15px;color:#1A1A2E;">' . htmlspecialchars($effectiveTrackingId) . '</p>
+                    <a href="' . $trackingUrl . '" style="display:inline-block;color:#C9A96E;font-size:13px;font-weight:600;text-decoration:none;">Track your order &rarr;</a>
+                </div>';
+            }
+
+            $noteHtml = '';
+            if ($note !== '') {
+                $noteHtml = '
+                <div style="background:#f8f8f8;border-left:3px solid #C9A96E;border-radius:4px;padding:12px 16px;margin-bottom:20px;">
+                    <p style="margin:0 0 4px;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Note from HJK Collections</p>
+                    <p style="margin:0;color:#333;font-size:14px;line-height:1.5;">' . nl2br(htmlspecialchars($note)) . '</p>
+                </div>';
+            }
+
+            $ctaLabel = ($newStatus === 'delivered') ? 'Write a Review' : 'View Order Details';
+            $ctaUrl = ($newStatus === 'delivered')
+                ? $appUrl . '/product-detail.html?id=' . (int)$items[0]['product_id'] . '#reviews'
+                : $appUrl . '/profile/orders.html';
+
+            $html = self::wrapInLayout('
+                <h2 style="color:#1A1A2E;margin:0 0 5px;">' . $copy['heading'] . '</h2>
+                <p style="color:#666;margin:0 0 25px;">Hi ' . htmlspecialchars($customerName) . ', ' . $copy['intro'] . '</p>
+
+                <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:20px;">
+                    <table width="100%"><tr>
+                        <td><span style="color:#888;font-size:13px;">Order Number</span><br><strong style="font-size:16px;">' . htmlspecialchars($order['order_number']) . '</strong></td>
+                        <td style="text-align:right;"><span style="color:#888;font-size:13px;">Status</span><br><span style="display:inline-block;padding:4px 12px;background:' . $copy['badgeBg'] . ';color:' . $copy['badgeColor'] . ';border-radius:20px;font-size:13px;font-weight:600;">' . $copy['badgeLabel'] . '</span></td>
+                    </tr></table>
+                </div>
+
+                ' . $trackingHtml . '
+                ' . $noteHtml . '
+
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+                    <thead><tr style="background:#1A1A2E;color:#fff;">
+                        <th style="padding:10px;text-align:left;border-radius:6px 0 0 0;">Item</th>
+                        <th style="padding:10px;text-align:right;border-radius:0 6px 0 0;">Amount</th>
+                    </tr></thead>
+                    <tbody>' . $itemsHtml . '</tbody>
+                </table>
+
+                <div style="text-align:center;margin:25px 0;">
+                    <a href="' . $ctaUrl . '" style="display:inline-block;background:#1A1A2E;color:#fff;padding:12px 30px;border-radius:6px;text-decoration:none;font-weight:600;">' . $ctaLabel . '</a>
+                </div>
+            ');
+
+            $mailer = new Mailer();
+            return $mailer->send($order['user_email'], $subject, $html);
+        } catch (Exception $e) {
+            error_log('OrderEmail status: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private static function statusCopy($status)
+    {
+        $map = [
+            'placed'          => ['subject' => 'Order placed',           'heading' => 'Order Placed',           'intro' => 'we\'ve received your order and are getting started.', 'badgeLabel' => 'Placed',         'badgeBg' => '#e8f0fe', 'badgeColor' => '#1a73e8'],
+            'confirmed'       => ['subject' => 'Order confirmed',        'heading' => 'Order Confirmed',        'intro' => 'your order has been confirmed and will be packed soon.', 'badgeLabel' => 'Confirmed',     'badgeBg' => '#e6f4ea', 'badgeColor' => '#137333'],
+            'processing'      => ['subject' => 'We\'re packing your order', 'heading' => 'Packing in Progress', 'intro' => 'our team is carefully packing your order right now.',     'badgeLabel' => 'Processing',    'badgeBg' => '#fff4e5', 'badgeColor' => '#b06000'],
+            'shipped'         => ['subject' => 'Your order is on its way', 'heading' => 'Order Shipped',         'intro' => 'good news! your order has been dispatched.',              'badgeLabel' => 'Shipped',       'badgeBg' => '#e8f0fe', 'badgeColor' => '#1a73e8'],
+            'out_for_delivery'=> ['subject' => 'Out for delivery today',  'heading' => 'Out for Delivery',       'intro' => 'your order is out for delivery and should arrive today.', 'badgeLabel' => 'Out for Delivery','badgeBg' => '#fff4e5', 'badgeColor' => '#b06000'],
+            'delivered'       => ['subject' => 'Delivered - how was it?', 'heading' => 'Delivered!',             'intro' => 'your order has been delivered. We\'d love to hear what you think.', 'badgeLabel' => 'Delivered',  'badgeBg' => '#e6f4ea', 'badgeColor' => '#137333'],
+            'cancelled'       => ['subject' => 'Order cancelled',         'heading' => 'Order Cancelled',        'intro' => 'your order has been cancelled. If this was unexpected, please contact us.', 'badgeLabel' => 'Cancelled', 'badgeBg' => '#fce8e6', 'badgeColor' => '#c5221f'],
+        ];
+        return $map[$status] ?? ['subject' => 'Order updated', 'heading' => 'Order Updated', 'intro' => 'there is an update on your order.', 'badgeLabel' => ucfirst(str_replace('_', ' ', $status)), 'badgeBg' => '#f1f3f4', 'badgeColor' => '#3c4043'];
+    }
+
     private static function formatPrice($amount)
     {
         return '₹' . number_format((float)$amount, 0);

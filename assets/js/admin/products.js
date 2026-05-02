@@ -271,7 +271,7 @@ const AdminProducts = {
                         <input type="color" class="var-colorCode" value="${variant.colorCode || '#000000'}" style="width:100%;height:40px;padding:4px;border:1px solid var(--border);border-radius:var(--radius-sm)">
                     </div>
                     <div class="col-md-6">
-                        <label>Upload Images *</label>
+                        <label>Upload Images * <span style="font-weight:400;color:var(--text-muted);font-size:0.75rem">(first image is used as the variant swatch on the product page)</span></label>
                         <input type="file" class="var-file-input" multiple accept="image/jpeg,image/png,image/webp,image/gif" onchange="AdminProducts.handleImageSelect(this, ${index})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff">
                         <div class="var-image-preview" id="imagePreview-${index}" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
                             ${existingImages.map((img, imgIdx) => `

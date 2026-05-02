@@ -303,6 +303,10 @@ const HJKCheckout = {
             modal: {
                 ondismiss: () => {
                     // User closed the Razorpay popup
+                    HJKAPI.checkout.logPaymentEvent({
+                        razorpay_order_id: orderId,
+                        event: 'cancelled',
+                    }).catch(() => {});
                     HJKComponents.showToast('Payment cancelled', 'error');
                     this.resetPayButton();
                 },
@@ -312,6 +316,11 @@ const HJKCheckout = {
         const rzp = new Razorpay(options);
 
         rzp.on('payment.failed', (response) => {
+            HJKAPI.checkout.logPaymentEvent({
+                razorpay_order_id: orderId,
+                event: 'payment_failed',
+                error_message: response.error?.description || response.error?.reason || 'Payment failed',
+            }).catch(() => {});
             HJKComponents.showToast(
                 response.error?.description || 'Payment failed. Please try again.',
                 'error'

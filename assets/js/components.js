@@ -34,7 +34,7 @@ const HJKComponents = {
                         <li class="nav-item"><a class="nav-link" href="/index.html">Home</a></li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="/products.html" data-bs-toggle="dropdown">Shop</a>
-                            <ul class="dropdown-menu">
+                            <ul class="dropdown-menu dropdown-menu-scroll">
                                 <li><a class="dropdown-item" href="/products.html">All Products</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 ${categories.filter(c => c.isActive).map(c =>
@@ -207,9 +207,13 @@ const HJKComponents = {
                         <div class="col-lg-2 col-md-6 col-6">
                             <h5 class="footer-title">Categories</h5>
                             <ul class="footer-links">
-                                ${categories.filter(c => c.isActive).map(c =>
-                                    `<li><a href="/products.html?category=${c.slug}">${c.name}</a></li>`
-                                ).join('')}
+                                ${(() => {
+                                    const active = categories.filter(c => c.isActive);
+                                    const visible = active.slice(0, 8);
+                                    const extra = active.length - visible.length;
+                                    return visible.map(c => `<li><a href="/products.html?category=${c.slug}">${c.name}</a></li>`).join('')
+                                        + (extra > 0 ? `<li><a href="/products.html" style="font-weight:600">View all (${active.length}) &rarr;</a></li>` : '');
+                                })()}
                             </ul>
                         </div>
                         <div class="col-lg-4 col-md-6">

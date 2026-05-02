@@ -808,6 +808,69 @@ input, select, textarea {
     opacity: 1;
 }
 
+/* Variant Tiles (Amazon-style image swatches) */
+.variant-tiles {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.variant-tile {
+    width: 86px;
+    padding: 4px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+}
+
+.variant-tile img,
+.variant-tile-fallback {
+    display: block;
+    width: 100%;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #f5f5f5;
+}
+
+.variant-tile-name {
+    font-size: 0.72rem;
+    color: var(--text);
+    margin-top: 4px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.variant-tile-price {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 2px;
+}
+
+.variant-tile:hover {
+    border-color: var(--text);
+}
+
+.variant-tile.active {
+    border-color: var(--secondary);
+    box-shadow: 0 0 0 1px var(--secondary);
+}
+
+@media (max-width: 480px) {
+    .variant-tile { width: 72px; }
+    .variant-tile img,
+    .variant-tile-fallback { height: 60px; }
+}
+
 /* Size Selector */
 .size-options {
     display: flex;

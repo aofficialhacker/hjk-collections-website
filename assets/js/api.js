@@ -186,6 +186,9 @@ const HJKAPI = {
         verifyPayment(data) {
             return HJKAPI.post('/checkout/verify-payment.php', data);
         },
+        logPaymentEvent(data) {
+            return HJKAPI.post('/checkout/log-payment-event.php', data);
+        },
     },
 
     // Review endpoints
@@ -271,6 +274,14 @@ const HJKAPI = {
             },
             detail(id) { return HJKAPI.get(`/admin/orders/detail.php?id=${id}`); },
             updateStatus(data) { return HJKAPI.put('/admin/orders/update-status.php', data); },
+        },
+        paymentLogs: {
+            list(params = {}) {
+                const q = new URLSearchParams(params).toString();
+                return HJKAPI.get('/admin/payment-logs/list.php' + (q ? '?' + q : ''));
+            },
+            detail(id) { return HJKAPI.get('/admin/payment-logs/detail.php?id=' + id); },
+            recover(id) { return HJKAPI.post('/admin/payment-logs/recover.php', { id }); },
         },
         customers: {
             list(params = {}) {

@@ -363,6 +363,29 @@ CREATE TABLE IF NOT EXISTS `hjk_newsletter` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Payment Logs (Razorpay reconciliation)
+CREATE TABLE IF NOT EXISTS `hjk_payment_logs` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT UNSIGNED NOT NULL,
+    `razorpay_order_id` VARCHAR(255) NOT NULL,
+    `razorpay_payment_id` VARCHAR(255) DEFAULT NULL,
+    `razorpay_signature` VARCHAR(255) DEFAULT NULL,
+    `amount` DECIMAL(10,2) NOT NULL,
+    `currency` VARCHAR(10) DEFAULT 'INR',
+    `status` ENUM('created','order_created','order_failed','signature_failed','payment_failed','cancelled') DEFAULT 'created',
+    `order_id` INT UNSIGNED DEFAULT NULL,
+    `error_message` TEXT,
+    `request_payload` LONGTEXT,
+    `response_payload` LONGTEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `hjk_users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`order_id`) REFERENCES `hjk_orders`(`id`) ON DELETE SET NULL,
+    UNIQUE KEY `uniq_razorpay_order_id` (`razorpay_order_id`),
+    INDEX `idx_status_created` (`status`, `created_at`),
+    INDEX `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Activity Log
 CREATE TABLE IF NOT EXISTS `hjk_activity_log` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
